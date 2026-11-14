@@ -1,0 +1,361 @@
+// Cabinet Planner — database schema (PostgreSQL)
+//
+// LENGTH UNIT: every length / position column is an Int in 0.1 mm.
+//   600 mm -> 6000 · 5.2 mm -> 52
+//   Convert only at the UI edge with packages/shared/src/units.ts. Never store floats.
+// Origins and axis directions: guidelines/units-and-coordinates.md
+// Hand-written constraints that Prisma can't express: prisma/sql/constraints.sql
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Connection URL lives in prisma.config.ts (Prisma 7+).
+}
+
+// ─────────────────────────────── Enums ───────────────────────────────
+
+enum Role {
+  VIEWER
+  DESIGNER
+  ADMIN
+}
+
+enum RevisionStatus {
+  WORKING
+  RELEASED
+}
+
+enum CabinetMaterial {
+  METAL
+  PLASTIC
+}
+
+/// The six faces of a cabinet, named in the cabinet's own frame
+/// (as manufactured: door on FRONT, upright). Mounting is described by up_face.
+enum Face {
+  FRONT
+  BACK
+  LEFT
+  RIGHT
+  TOP
+  BOTTOM
+}
+
+enum HingeSide {
+  LEFT
+  RIGHT
+  TOP
+  BOTTOM
+  NONE
+}
+
+enum OpeningKind {
+  WINDOW
+  ROUND_HOLE
+  RECT_HOLE
+  CABLE_GLAND
+}
+
+/// Decides which extra fields a catalog component has (attributes JSON)
+/// and how the platen editor treats it.
+enum ComponentKind {
+  STANDARD
+  FUSE
+  TERMINAL_BLOCK
+  GUTTER
+  RAIL
+}
+
+// ─────────────────────────────── Users ───────────────────────────────
+
+model User {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique
+  displayName   String   @map("display_name")
+  passwordHash  String   @map("password_hash")
+  role          Role     @default(VIEWER)
+  /// DESIGNER permission: create / edit projects. Ignored for VIEWER and ADMIN.
+  canProjects   Boolean  @default(true) @map("can_projects")
+  /// DESIGNER permission: add / edit catalog components. Ignored for VIEWER and ADMIN.
+  canComponents Boolean  @default(true) @map("can_components")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  sessions          Session[]
+  projectsCreated   Project[]         @relation("ProjectCreatedBy")
+  machinesCreated   Machine[]         @relation("MachineCreatedBy")
+  revisionsCreated  MachineRevision[] @relation("RevisionCreatedBy")
+  revisionsReleased MachineRevision[] @relation("RevisionReleasedBy")
+
+  @@map("users")
+}
+
+model Session {
+  /// SHA-256 of the session token. The raw token only lives in the httpOnly cookie.
+  id        String   @id
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ───────────────────────────── Projects ──────────────────────────────
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  /// Customer name, plain text.
+  customer    String
+  /// Room for fields added later without a migration. Validated by Zod.
+  extra       Json     @default("{}")
+  createdById Int      @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy User      @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+  machines  Machine[]
+
+  @@map("projects")
+}
+
+/// One machine design within a project. Each machine has its own drawing and
+/// revision history; `quantity` is how many identical copies get built.
+model Machine {
+  id          Int      @id @default(autoincrement())
+  projectId   Int      @map("project_id")
+  name        String
+  quantity    Int      @default(1)
+  /// Room for fields added later without a migration. Validated by Zod.
+  extra       Json     @default("{}")
+  createdById Int      @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User              @relation("MachineCreatedBy", fields: [createdById], references: [id])
+  revisions MachineRevision[]
+
+  @@unique([projectId, name])
+  @@map("machines")
+}
+
+model MachineRevision {
+  id           Int            @id @default(autoincrement())
+  machineId    Int            @map("machine_id")
+  /// 0…999, shown zero-padded as "Rev 000" (formatRev in packages/shared).
+  rev          Int
+  status       RevisionStatus @default(WORKING)
+  notes        String?
+  /// Revision this one was copied from (NULL for the first one).
+  basedOnId    Int?           @map("based_on_id")
+  createdById  Int            @map("created_by_id")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  releasedById Int?           @map("released_by_id")
+  releasedAt   DateTime?      @map("released_at")
+
+  machine    Machine           @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  basedOn    MachineRevision?  @relation("RevisionLineage", fields: [basedOnId], references: [id])
+  derived    MachineRevision[] @relation("RevisionLineage")
+  createdBy  User              @relation("RevisionCreatedBy", fields: [createdById], references: [id])
+  releasedBy User?             @relation("RevisionReleasedBy", fields: [releasedById], references: [id])
+  cabinets   Cabinet[]
+
+  @@unique([machineId, rev])
+  @@map("machine_revisions")
+}
+
+// ───────────────────────────── Cabinets ──────────────────────────────
+
+/// Lookup table so new types can be added from the app (seeded: Control, Power,
+/// Jumper, Safety, Motion, Comms, General).
+model CabinetType {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique
+  sortOrder Int     @default(0) @map("sort_order")
+  active    Boolean @default(true)
+
+  cabinets Cabinet[]
+
+  @@map("cabinet_types")
+}
+
+model Cabinet {
+  id            Int             @id @default(autoincrement())
+  revisionId    Int             @map("revision_id")
+  /// 1, 2, 3… unique within the revision.
+  number        Int
+  typeId        Int             @map("type_id")
+  material      CabinetMaterial
+  height        Int
+  width         Int
+  depth         Int
+  /// "Window: yes/no" is derived: yes when an opening of kind WINDOW exists.
+  /// Platen row is kept when this is switched off, so the layout isn't lost.
+  hasPlaten     Boolean         @default(true) @map("has_platen")
+  mainVoltage   String          @map("main_voltage")
+  otherVoltages String[]        @default([]) @map("other_voltages")
+  hingeSide     HingeSide       @default(LEFT) @map("hinge_side")
+  /// Which face points up once mounted. TOP = mounted as manufactured.
+  upFace        Face            @default(TOP) @map("up_face")
+  extra         Json            @default("{}")
+
+  revision MachineRevision  @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  type     CabinetType      @relation(fields: [typeId], references: [id])
+  platen   Platen?
+  openings CabinetOpening[]
+
+  @@unique([revisionId, number])
+  @@map("cabinets")
+}
+
+model Platen {
+  id        Int @id @default(autoincrement())
+  cabinetId Int @unique @map("cabinet_id")
+  /// Default on create: cabinet height − 500 (50 mm). Editable.
+  height    Int
+  /// Default on create: cabinet width − 500 (50 mm). Editable.
+  width     Int
+
+  cabinet    Cabinet     @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+  placements Placement[]
+
+  @@map("platens")
+}
+
+/// Windows, holes and cable glands cut into a cabinet face.
+model CabinetOpening {
+  id          Int         @id @default(autoincrement())
+  cabinetId   Int         @map("cabinet_id")
+  kind        OpeningKind
+  face        Face
+  /// Centre of the opening, from the face centre. +x right, +y up, viewed from outside.
+  x           Int
+  y           Int
+  /// WINDOW and RECT_HOLE only.
+  width       Int?
+  height      Int?
+  /// ROUND_HOLE only. CABLE_GLAND takes its diameter from the gland catalog.
+  diameter    Int?
+  glandId     Int?        @map("gland_id")
+  /// Component mounted in the hole (pushbutton, pilot light…). Optional.
+  componentId Int?        @map("component_id")
+  label       String?
+  /// Catalog data frozen when the revision is released.
+  snapshot    Json?
+
+  cabinet   Cabinet     @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
+  gland     CableGland? @relation(fields: [glandId], references: [id], onDelete: Restrict)
+  component Component?  @relation(fields: [componentId], references: [id], onDelete: Restrict)
+
+  @@index([cabinetId])
+  @@map("cabinet_openings")
+}
+
+// ────────────────────────────── Catalog ──────────────────────────────
+
+model ComponentType {
+  id        Int    @id @default(autoincrement())
+  name      String @unique
+  sortOrder Int    @default(0) @map("sort_order")
+
+  components Component[]
+
+  @@map("component_types")
+}
+
+/// One table for every catalog item. `kind` decides the extra fields in
+/// `attributes` (see guidelines/data-model.md). Never hard-delete a used row:
+/// set active = false.
+model Component {
+  id             Int           @id @default(autoincrement())
+  kind           ComponentKind @default(STANDARD)
+  typeId         Int?          @map("type_id")
+  manufacturer   String
+  partNumber     String        @map("part_number")
+  /// Internal ID / code (the "id" field in the spec). Unique when set.
+  code           String?       @unique
+  description    String?
+  inputVoltage   String?       @map("input_voltage")
+  /// AC only: 1 or 3. NULL for DC or not applicable.
+  phases         Int?
+  /// Bounding box as mounted on the platen. For GUTTER / RAIL: height = 0,
+  /// width = profile width, depth = profile height; length lives on the placement.
+  height         Int
+  width          Int
+  depth          Int
+  railMount      Boolean       @default(false) @map("rail_mount")
+  /// When rail_mount: distance from the component's top edge to the rail's top edge.
+  railEdgeOffset Int?          @map("rail_edge_offset")
+  stackable      Boolean       @default(false)
+  /// Kind-specific fields, validated by the Zod schema for that kind.
+  attributes     Json          @default("{}")
+  imagePath      String?       @map("image_path")
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  type       ComponentType?   @relation(fields: [typeId], references: [id])
+  placements Placement[]
+  openings   CabinetOpening[]
+
+  @@unique([manufacturer, partNumber])
+  @@index([kind])
+  @@map("components")
+}
+
+model CableGland {
+  id           Int     @id @default(autoincrement())
+  /// Size / type label: "M20", "PG13.5", "1/2in NPT"…
+  size         String  @unique
+  /// Hole diameter to cut.
+  holeDiameter Int     @map("hole_diameter")
+  imagePath    String? @map("image_path")
+  active       Boolean @default(true)
+
+  openings CabinetOpening[]
+
+  @@map("cable_glands")
+}
+
+// ──────────────────────────── Platen layout ──────────────────────────
+
+/// A catalog component placed on a platen.
+model Placement {
+  id          Int      @id @default(autoincrement())
+  platenId    Int      @map("platen_id")
+  componentId Int      @map("component_id")
+  /// Top-left corner of the (rotated) bounding box, from the platen's top-left. +x right, +y down.
+  x           Int
+  y           Int
+  /// 0, 90, 180 or 270, clockwise.
+  rotation    Int      @default(0)
+  /// GUTTER and RAIL only.
+  length      Int?
+  locked      Boolean  @default(false)
+  /// Rail this component is snapped to (a placement whose component kind is RAIL).
+  railId      Int?     @map("rail_id")
+  /// Electrical tag, e.g. "-K1", "-F3".
+  tag         String?
+  zIndex      Int      @default(0) @map("z_index")
+  /// Catalog data frozen when the revision is released.
+  snapshot    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  platen    Platen      @relation(fields: [platenId], references: [id], onDelete: Cascade)
+  component Component   @relation(fields: [componentId], references: [id], onDelete: Restrict)
+  rail      Placement?  @relation("RailMount", fields: [railId], references: [id], onDelete: SetNull)
+  onRail    Placement[] @relation("RailMount")
+
+  @@index([platenId])
+  @@map("placements")
+}
