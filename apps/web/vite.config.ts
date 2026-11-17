@@ -10,7 +10,9 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://127.0.0.1:3000",
+      // Keep the browser's Host header (the string shorthand rewrites it): the API's CSRF check
+      // compares Origin with Host, like it will behind the production reverse proxy.
+      "/api": { target: "http://127.0.0.1:3000", changeOrigin: false },
     },
   },
 });

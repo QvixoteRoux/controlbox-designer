@@ -8,7 +8,8 @@
 | Package manager      | pnpm workspaces                                                                                                                                                                  |
 | Frontend             | React + Vite                                                                                                                                                                     |
 | Platen / face editor | react-konva (Konva canvas)                                                                                                                                                       |
-| UI components        | Mantine (modals, forms, tables)                                                                                                                                                  |
+| UI components        | Mantine (modals, forms, tables); `@mantine/form` validated with the shared Zod schemas (`schemaResolver`); `@mantine/notifications` for toasts                                   |
+| Routing              | React Router 8 (`createBrowserRouter`, routes in `apps/web/src/router.tsx`)                                                                                                      |
 | Data fetching        | TanStack Query                                                                                                                                                                   |
 | Backend              | Node + Fastify                                                                                                                                                                   |
 | Validation           | Zod (schemas shared with the frontend)                                                                                                                                           |
@@ -16,7 +17,7 @@
 | Database             | PostgreSQL 18, installed natively (no Docker for local dev); production must run the same major version                                                                          |
 | Image storage        | Local `uploads/` in dev, MinIO (S3-compatible) in prod                                                                                                                           |
 | Auth                 | Username + password (argon2 hash), server-side sessions in an httpOnly cookie                                                                                                    |
-| Tests                | Vitest (unit), Playwright (editor end-to-end, later)                                                                                                                             |
+| Tests                | Vitest (unit + API integration tests against a real database), Playwright (editor end-to-end, later)                                                                             |
 | Deploy               | Docker images → Dokploy                                                                                                                                                          |
 
 ## Layout
@@ -76,9 +77,17 @@ PostgreSQL 18 runs natively on the dev/host machine at `localhost:5432`.
    ```
    Run Prisma through `pnpm` as shown: calling the `prisma` binary directly can't find `tsx` for the seed.
 
+## Tests and the test database
+
+- `pnpm test` needs PostgreSQL running: the API integration tests use their own database, `<dev db name>_test` (e.g. `cabinet_planner_test`), or `TEST_DATABASE_URL` if set.
+- The tests create that database on first run and apply migrations every run (`apps/api/test/global-setup.ts`), so the `planner` role needs `CREATEDB`. Tables are emptied before each test; dev data is never touched.
+- API test files run one at a time because they share the database.
+
 ## Conventions
 
 - DB tables and columns use snake_case (via `@@map` / `@map`). TS code uses camelCase.
 - API: REST + JSON under `/api`. Revision-scoped resources are nested: `/api/projects/:id/machines/:machineId/revisions/:rev/cabinets`.
+  - Handlers parse input with the shared Zod schemas (`Schema.parse(request.body)`); a `ZodError` becomes a 400 with per-field messages.
+  - Business-rule failures throw `HttpError(status, message)` from `apps/api/src/errors.ts`. Every error response has the shared `ApiErrorBody` shape.
 - Feature folders own their components, hooks and API calls. Only code shared across features goes in `components/` or `lib/`.
 - Optimistic updates for drag in the editor; the server stays authoritative.

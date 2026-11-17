@@ -1,10 +1,10 @@
 import { HealthResponse } from "@cabinet-planner/shared";
 import { describe, expect, it } from "vitest";
-import { buildApp } from "../app.js";
+import { buildTestApp } from "../../test/helpers.js";
 
 describe("GET /api/health", () => {
   it("reports ok when the database answers", async () => {
-    const app = await buildApp({ pingDb: () => Promise.resolve() });
+    const app = await buildTestApp();
 
     const res = await app.inject({ method: "GET", url: "/api/health" });
 
@@ -14,7 +14,7 @@ describe("GET /api/health", () => {
   });
 
   it("reports degraded with 503 when the database is down", async () => {
-    const app = await buildApp({ pingDb: () => Promise.reject(new Error("ECONNREFUSED")) });
+    const app = await buildTestApp({ pingDb: () => Promise.reject(new Error("ECONNREFUSED")) });
 
     const res = await app.inject({ method: "GET", url: "/api/health" });
 

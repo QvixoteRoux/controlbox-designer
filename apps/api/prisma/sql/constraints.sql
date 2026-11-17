@@ -1,11 +1,18 @@
--- Constraints Prisma can't express in schema.prisma.
--- Append to the first migration's migration.sql (or create an empty migration with
--- `prisma migrate dev --create-only --name constraints` and paste this in).
+-- Constraints Prisma can't express in schema.prisma. This file is the full current list.
+-- To add one: append it here, then create an empty migration with
+-- `pnpm --filter api prisma migrate dev --create-only --name <change>`, paste just the new
+-- statement into it, run `prisma migrate dev`, and add its name to verify-constraints.sql.
+-- Prisma doesn't see these, and (checked) doesn't try to drop them in later migrations.
 
 -- Users: a DESIGNER must keep at least one of the two permissions.
 ALTER TABLE users
   ADD CONSTRAINT users_designer_has_permission
   CHECK (role <> 'DESIGNER' OR can_projects OR can_components);
+
+-- Users: usernames are unique ignoring case ("Admin" can't exist next to "admin").
+-- Login still matches the exact spelling. Added in migration users_username_case_insensitive.
+CREATE UNIQUE INDEX users_username_lower_key
+  ON users (lower(username));
 
 -- Machines: at least one copy.
 ALTER TABLE machines

@@ -8,3 +8,4 @@ export * from "./schemas/project.js";
 export * from "./schemas/cabinet.js";
 export * from "./schemas/component.js";
 export * from "./schemas/health.js";
+export * from "./schemas/error.js";

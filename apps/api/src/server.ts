@@ -7,8 +7,13 @@ const prisma = createPrisma(env.DATABASE_URL);
 
 const app = await buildApp(
   {
+    db: prisma,
     pingDb: async () => {
       await prisma.$queryRaw`SELECT 1`;
+    },
+    auth: {
+      cookieName: env.SESSION_COOKIE_NAME,
+      secureCookies: env.NODE_ENV === "production",
     },
   },
   { logger: { level: env.NODE_ENV === "production" ? "info" : "debug" } },

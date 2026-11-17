@@ -2,6 +2,9 @@ import { z } from "zod";
 
 export const Id = z.number().int().positive();
 
+/** `:id` route parameter (arrives as a string). */
+export const IdParams = z.object({ id: z.coerce.number().int().positive() });
+
 /** A length or position in 0.1 mm. Always an integer (guidelines/units-and-coordinates.md). */
 export const Units = z.number().int();
 /** A size in 0.1 mm that must be > 0. */
