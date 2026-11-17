@@ -13,7 +13,7 @@
 | Backend              | Node + Fastify                                                                                                                                                                   |
 | Validation           | Zod (schemas shared with the frontend)                                                                                                                                           |
 | ORM / migrations     | Prisma 7: the DB URL lives in `apps/api/prisma.config.ts`, PrismaClient uses `@prisma/adapter-pg`, and the generated client goes to `apps/api/src/generated/prisma` (gitignored) |
-| Database             | PostgreSQL 17, installed natively (no Docker for local dev)                                                                                                                      |
+| Database             | PostgreSQL 18, installed natively (no Docker for local dev); production must run the same major version                                                                          |
 | Image storage        | Local `uploads/` in dev, MinIO (S3-compatible) in prod                                                                                                                           |
 | Auth                 | Username + password (argon2 hash), server-side sessions in an httpOnly cookie                                                                                                    |
 | Tests                | Vitest (unit), Playwright (editor end-to-end, later)                                                                                                                             |
@@ -56,21 +56,25 @@ controlbox-designer/
 
 ## One-time local database setup
 
-PostgreSQL 17 runs natively on the dev/host machine at `localhost:5432`.
+PostgreSQL 18 runs natively on the dev/host machine at `localhost:5432`.
 
-1. Install PostgreSQL 17 (on Windows: `winget install PostgreSQL.PostgreSQL.17`, or the EDB installer). Set the `postgres` superuser password during setup.
+1. Install PostgreSQL 18 (on Windows: `winget install PostgreSQL.PostgreSQL.18 --interactive`, or the EDB installer).
+   - Set the `postgres` superuser password during setup. Install Server and Command Line Tools; Stack Builder add-ons aren't needed.
+   - Add `C:\Program Files\PostgreSQL\18\bin` to PATH (the installer doesn't) so `psql` works.
 2. Create the app role and database. Run as the superuser, e.g. `psql -U postgres`:
    ```sql
    CREATE ROLE planner WITH LOGIN PASSWORD 'planner' CREATEDB;
    CREATE DATABASE cabinet_planner OWNER planner;
    ```
    `CREATEDB` is needed because `prisma migrate dev` creates a temporary shadow database. Use a real password outside local dev.
-3. Copy `.env.example` to `.env` and adjust `DATABASE_URL` and the `SEED_ADMIN_*` values.
-4. Create the tables and seed data:
+3. Copy `.env.example` to `.env` and adjust `DATABASE_URL` and the `SEED_ADMIN_*` values. The password in `DATABASE_URL` is part of a URL: percent-encode `@ : / ? # % &` (e.g. `@` → `%40`), or stick to letters, digits, `-` and `_`.
+4. Create the tables, check the hand-written constraints (every row should say `ok`), and seed:
    ```
    pnpm --filter api prisma migrate dev
+   psql "<DATABASE_URL>" -f apps/api/prisma/sql/verify-constraints.sql
    pnpm --filter api prisma db seed
    ```
+   Run Prisma through `pnpm` as shown: calling the `prisma` binary directly can't find `tsx` for the seed.
 
 ## Conventions
 

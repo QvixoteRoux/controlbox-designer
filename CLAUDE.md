@@ -14,7 +14,7 @@ Web app for laying out electrical cabinets:
 TypeScript everywhere · pnpm workspaces
 
 - `apps/web`: React + Vite, react-konva for the platen editor
-- `apps/api`: Fastify + Prisma + PostgreSQL 17 (native install, no Docker for local dev)
+- `apps/api`: Fastify + Prisma + PostgreSQL 18 (native install, no Docker for local dev)
 - `packages/shared`: Zod schemas, TS types, units and permission helpers (used by both apps)
 - Deploy: Docker images run on Dokploy
 
