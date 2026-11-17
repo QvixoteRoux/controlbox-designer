@@ -75,5 +75,5 @@ Each placement stores x, y, rotation, an optional length (gutter and rail only),
 - [x] A project has several machines; each machine has its own drawing, and `quantity` covers identical copies.
 - [x] The default platen is 50 mm smaller in **both** height and width.
 - [x] Rail edge offset is measured from the component's top edge to the rail's **top edge**, not its centre line.
-- [x] Revisions are numeric, 0…999, shown zero-padded to 3 digits ("Rev 007").
+- [x] Revisions are numeric, starting at 1: 1…999, shown zero-padded to 3 digits ("Rev 001", "Rev 007").
 - [x] Fuse attributes describe the fuse holder and fuse as one catalog item.

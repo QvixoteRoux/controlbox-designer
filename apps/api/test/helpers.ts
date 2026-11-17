@@ -21,9 +21,11 @@ export function buildTestApp(overrides: Partial<AppDeps> = {}) {
   });
 }
 
-/** Empty every table that holds test data. */
+/** Empty every table that holds test data (CASCADE reaches projects, sessions, cabinets…). */
 export async function resetDb() {
-  await db.$executeRaw`TRUNCATE TABLE users RESTART IDENTITY CASCADE`;
+  await db.$executeRaw`
+    TRUNCATE TABLE users, cabinet_types, component_types, components, cable_glands
+    RESTART IDENTITY CASCADE`;
 }
 
 export const PASSWORD = "correct-horse";

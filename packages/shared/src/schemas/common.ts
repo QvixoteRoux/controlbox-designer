@@ -16,4 +16,4 @@ export const NonNegativeUnits = Units.nonnegative();
 export const Timestamp = z.iso.datetime();
 
 /** Free-form JSON object for fields added later (`extra` columns). */
-export const Extra = z.record(z.string(), z.unknown());
+export const Extra = z.record(z.string(), z.json());

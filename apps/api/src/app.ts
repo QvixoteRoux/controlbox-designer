@@ -4,6 +4,7 @@ import { errorHandler } from "./errors.js";
 import type { PrismaClient } from "./generated/prisma/client.js";
 import { authRoutes } from "./routes/auth.js";
 import { healthRoutes } from "./routes/health.js";
+import { projectsRoutes } from "./routes/projects.js";
 import { usersRoutes } from "./routes/users.js";
 
 export interface AppDeps {
@@ -22,6 +23,7 @@ export async function buildApp(deps: AppDeps, options: FastifyServerOptions = {}
       await api.register(healthRoutes, { pingDb: deps.pingDb });
       await api.register(authRoutes, { db: deps.db, auth: deps.auth });
       await api.register(usersRoutes, { db: deps.db });
+      await api.register(projectsRoutes, { db: deps.db });
     },
     { prefix: "/api" },
   );

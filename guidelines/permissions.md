@@ -20,7 +20,8 @@ New users default to VIEWER.
 - Every user can change their **own** password (current password required).
 - The **last active ADMIN** can't be demoted or deactivated. This is checked in the API service, inside a transaction that locks the active admin rows, so two simultaneous demotions can't both pass.
 - Role and permission changes apply on the user's next request: each request reads the user fresh with the session.
-- Releasing a revision requires `projects`. Change this to `admin` if releases need sign-off.
+- Releasing a revision requires `projects` (confirmed by the owner). Change this to `admin` if releases ever need sign-off.
+- Deleting a project or machine requires `projects` while nothing is released, and `admin` once it has released revisions (`guidelines/revisions.md`).
 
 ## Helper (`packages/shared/src/permissions.ts`)
 

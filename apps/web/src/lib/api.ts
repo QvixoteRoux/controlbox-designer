@@ -53,6 +53,7 @@ export const api = {
     request("POST", path, { body, schema }),
   patch: <S extends z.ZodType>(path: string, body: unknown, schema?: S) =>
     request("PATCH", path, { body, schema }),
+  delete: (path: string) => request("DELETE", path),
 };
 
 /** A user-facing message for any error thrown by a query or mutation. */

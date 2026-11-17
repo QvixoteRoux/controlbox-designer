@@ -151,7 +151,7 @@ model Machine {
 model MachineRevision {
   id           Int            @id @default(autoincrement())
   machineId    Int            @map("machine_id")
-  /// 0…999, shown zero-padded as "Rev 000" (formatRev in packages/shared).
+  /// 1…999, shown zero-padded as "Rev 001" (formatRev in packages/shared).
   rev          Int
   status       RevisionStatus @default(WORKING)
   notes        String?

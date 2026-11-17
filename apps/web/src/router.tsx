@@ -1,8 +1,11 @@
 import { createBrowserRouter } from "react-router";
 import { AppLayout } from "./components/AppLayout";
-import { HomePage, NotFoundPage } from "./components/SimplePages";
+import { NotFoundPage } from "./components/SimplePages";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RequireAuth, RequirePermission } from "./features/auth/RequireAuth";
+import { MachinePage } from "./features/projects/MachinePage";
+import { ProjectPage } from "./features/projects/ProjectPage";
+import { ProjectsPage } from "./features/projects/ProjectsPage";
 import { UsersPage } from "./features/users/UsersPage";
 
 export const router = createBrowserRouter([
@@ -13,7 +16,9 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { index: true, element: <HomePage /> },
+          { index: true, element: <ProjectsPage /> },
+          { path: "projects/:projectId", element: <ProjectPage /> },
+          { path: "projects/:projectId/machines/:machineId", element: <MachinePage /> },
           {
             path: "users",
             element: (

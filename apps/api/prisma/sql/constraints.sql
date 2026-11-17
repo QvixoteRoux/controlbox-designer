@@ -19,10 +19,11 @@ ALTER TABLE machines
   ADD CONSTRAINT machines_quantity_positive
   CHECK (quantity > 0);
 
--- Revisions: numbered 0…999 (shown as "Rev 000").
+-- Revisions: numbered 1…999 (shown as "Rev 001"). Was 0…999 until migration
+-- revisions_start_at_1, which renumbered existing rows.
 ALTER TABLE machine_revisions
   ADD CONSTRAINT machine_revisions_rev_range
-  CHECK (rev BETWEEN 0 AND 999);
+  CHECK (rev BETWEEN 1 AND 999);
 
 -- Revisions: at most one WORKING revision per machine.
 CREATE UNIQUE INDEX machine_revisions_one_working
@@ -33,6 +34,11 @@ CREATE UNIQUE INDEX machine_revisions_one_working
 ALTER TABLE machine_revisions
   ADD CONSTRAINT machine_revisions_release_info
   CHECK (status <> 'RELEASED' OR (released_at IS NOT NULL AND released_by_id IS NOT NULL));
+
+-- Revisions: a release says what changed. Added in migration release_requires_notes.
+ALTER TABLE machine_revisions
+  ADD CONSTRAINT machine_revisions_release_notes
+  CHECK (status <> 'RELEASED' OR length(btrim(coalesce(notes, ''))) > 0);
 
 -- Positive sizes (0.1 mm units).
 ALTER TABLE cabinets
