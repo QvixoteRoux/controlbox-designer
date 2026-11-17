@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Extra, Id, PositiveUnits, Units } from "./common.js";
+import { ComponentRef } from "./component.js";
 import { CabinetMaterial, Face, HingeSide, OpeningKind } from "./enums.js";
 import { GlandRef } from "./gland.js";
 import { MachineRevision, RevisionParams, RevisionSummary } from "./project.js";
@@ -115,7 +116,13 @@ export const OpeningInput = z.discriminatedUnion("kind", [
     width: PositiveUnits,
     height: PositiveUnits,
   }),
-  z.object({ kind: z.literal("ROUND_HOLE"), ...openingBase, diameter: PositiveUnits }),
+  z.object({
+    kind: z.literal("ROUND_HOLE"),
+    ...openingBase,
+    diameter: PositiveUnits,
+    /** Catalog component mounted in the hole (pushbutton, pilot light…): STANDARD or FUSE. */
+    componentId: Id.nullable().default(null),
+  }),
   z.object({ kind: z.literal("CABLE_GLAND"), ...openingBase, glandId: Id }),
 ]);
 export type OpeningInput = z.infer<typeof OpeningInput>;
@@ -170,6 +177,7 @@ export const Opening = z.object({
   componentId: Id.nullable(),
   label: z.string().nullable(),
   gland: GlandRef.nullable(),
+  component: ComponentRef.nullable(),
 });
 export type Opening = z.infer<typeof Opening>;
 

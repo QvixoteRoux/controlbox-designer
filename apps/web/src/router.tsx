@@ -5,6 +5,8 @@ import { LoginPage } from "./features/auth/LoginPage";
 import { RequireAuth, RequirePermission } from "./features/auth/RequireAuth";
 import { CabinetPage } from "./features/cabinets/CabinetPage";
 import { RevisionPage } from "./features/cabinets/RevisionPage";
+import { ComponentsPage } from "./features/catalog/ComponentsPage";
+import { TypesPage } from "./features/catalog/TypesPage";
 import { GlandsPage } from "./features/glands/GlandsPage";
 import { MachinePage } from "./features/projects/MachinePage";
 import { ProjectPage } from "./features/projects/ProjectPage";
@@ -30,7 +32,9 @@ export const router = createBrowserRouter([
             path: "projects/:projectId/machines/:machineId/revisions/:rev/cabinets/:cabinetId",
             element: <CabinetPage />,
           },
+          { path: "components", element: <ComponentsPage /> },
           { path: "cable-glands", element: <GlandsPage /> },
+          { path: "types", element: <TypesPage /> },
           {
             path: "users",
             element: (

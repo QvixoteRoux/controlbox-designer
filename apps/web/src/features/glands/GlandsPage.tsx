@@ -24,11 +24,12 @@ import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { ImageField, Thumbnail } from "../../components/ImageField";
 import { errorMessage } from "../../lib/api";
 import { formatMm } from "../../lib/format";
 import { convertingResolver, mmInputProps, mmToUnits, unitsToMm } from "../../lib/forms";
 import { useCurrentUser } from "../auth/api";
-import { glandsQuery, useCreateGland, useDeleteGland, useUpdateGland } from "./api";
+import { glandsQuery, useCreateGland, useDeleteGland, useGlandImage, useUpdateGland } from "./api";
 
 /** Cable gland list: size + hole diameter. Editing needs the Components permission. */
 export function GlandsPage() {
@@ -65,6 +66,7 @@ export function GlandsPage() {
           <Table verticalSpacing="sm" maw={720}>
             <Table.Thead>
               <Table.Tr>
+                <Table.Th w={56} />
                 <Table.Th>Size</Table.Th>
                 <Table.Th>Hole diameter</Table.Th>
                 <Table.Th>Status</Table.Th>
@@ -74,6 +76,9 @@ export function GlandsPage() {
             <Table.Tbody>
               {glands.data.map((g) => (
                 <Table.Tr key={g.id} c={g.active ? undefined : "dimmed"}>
+                  <Table.Td>
+                    <Thumbnail imagePath={g.imagePath} />
+                  </Table.Td>
                   <Table.Td fw={500}>{g.size}</Table.Td>
                   <Table.Td>{formatMm(g.holeDiameter)}</Table.Td>
                   <Table.Td>
@@ -137,7 +142,10 @@ interface GlandFormValues {
 function GlandForm({ gland, onDone }: { gland: CableGlandListItem | null; onDone: () => void }) {
   const create = useCreateGland();
   const update = useUpdateGland();
+  const image = useGlandImage();
   const save = gland ? update : create;
+  // A picked picture is uploaded after saving (a new gland needs its id first).
+  const [imageChange, setImageChange] = useState<{ file: File } | "remove" | null>(null);
   const toApi = (v: GlandFormValues) => ({ size: v.size, holeDiameter: mmToUnits(v.holeDiameter) });
   const form = useForm<GlandFormValues>({
     initialValues: {
@@ -150,9 +158,23 @@ function GlandForm({ gland, onDone }: { gland: CableGlandListItem | null; onDone
 
   const submit = form.onSubmit((values) => {
     const input = CreateCableGlandInput.parse(toApi(values));
-    const done = () => {
+    const finish = () => {
       notifications.show({ color: "green", message: `${input.size} saved` });
       onDone();
+    };
+    const done = (saved: { id: number }) => {
+      if (imageChange === null) return finish();
+      image.mutate(
+        { id: saved.id, file: imageChange === "remove" ? null : imageChange.file },
+        {
+          onSuccess: finish,
+          onError: (err) =>
+            notifications.show({
+              color: "red",
+              message: `Saved, but the picture failed: ${errorMessage(err)}`,
+            }),
+        },
+      );
     };
     if (!gland) return create.mutate(input, { onSuccess: done });
     const patch: UpdateCableGlandInput = {
@@ -160,7 +182,7 @@ function GlandForm({ gland, onDone }: { gland: CableGlandListItem | null; onDone
       ...(input.holeDiameter !== gland.holeDiameter && { holeDiameter: input.holeDiameter }),
       ...(values.active !== gland.active && { active: values.active }),
     };
-    if (Object.keys(patch).length === 0) return onDone();
+    if (Object.keys(patch).length === 0) return done(gland);
     update.mutate({ id: gland.id, patch }, { onSuccess: done });
   });
 
@@ -180,6 +202,12 @@ function GlandForm({ gland, onDone }: { gland: CableGlandListItem | null; onDone
           {...mmInputProps}
           {...form.getInputProps("holeDiameter")}
         />
+        <ImageField
+          imagePath={imageChange === "remove" ? null : (gland?.imagePath ?? null)}
+          pending={imageChange !== null && imageChange !== "remove" ? imageChange.file : null}
+          onPick={(file) => setImageChange({ file })}
+          onRemove={() => setImageChange(gland?.imagePath ? "remove" : null)}
+        />
         {gland && (
           <Switch
             label="Active"
@@ -191,7 +219,7 @@ function GlandForm({ gland, onDone }: { gland: CableGlandListItem | null; onDone
           <Button variant="default" onClick={onDone}>
             Cancel
           </Button>
-          <Button type="submit" loading={save.isPending}>
+          <Button type="submit" loading={save.isPending || image.isPending}>
             Save
           </Button>
         </Group>

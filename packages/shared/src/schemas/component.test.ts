@@ -1,0 +1,146 @@
+import { describe, expect, it } from "vitest";
+import {
+  ComponentInput,
+  componentColumns,
+  DEFAULT_STOCK_LENGTH,
+  RAIL_WIDTH,
+  stockLength,
+  terminalLevels,
+} from "./component.js";
+
+const identity = { manufacturer: "Acme", partNumber: "X-1" };
+const box = { height: 900, width: 52, depth: 600 };
+
+const parse = (input: object) => ComponentInput.safeParse(input);
+
+describe("ComponentInput", () => {
+  it("accepts each kind with only its own fields, filling defaults", () => {
+    expect(parse({ kind: "STANDARD", ...identity, ...box }).success).toBe(true);
+    expect(
+      parse({ kind: "FUSE", ...identity, ...box, attributes: { amperage: 10, poles: 1 } }).success,
+    ).toBe(true);
+    expect(
+      parse({
+        kind: "TERMINAL_BLOCK",
+        ...identity,
+        ...box,
+        railEdgeOffset: 200,
+        attributes: { levels: 2 },
+      }).success,
+    ).toBe(true);
+    expect(
+      parse({ kind: "GROUND_TERMINAL", ...identity, ...box, railEdgeOffset: 200 }).success,
+    ).toBe(true);
+    expect(parse({ kind: "GUTTER", ...identity, width: 600 }).success).toBe(true);
+    expect(parse({ kind: "RAIL", ...identity, depth: 75 }).success).toBe(true);
+  });
+
+  it("allows terminal blocks of 1 to 4 levels", () => {
+    const terminal = (levels: number) =>
+      parse({
+        kind: "TERMINAL_BLOCK",
+        ...identity,
+        ...box,
+        railEdgeOffset: 0,
+        attributes: { levels },
+      }).success;
+    expect([0, 1, 2, 3, 4, 5].map(terminal)).toEqual([false, true, true, true, true, false]);
+  });
+
+  it("needs a rail offset for terminals", () => {
+    expect(parse({ kind: "GROUND_TERMINAL", ...identity, ...box }).success).toBe(false);
+  });
+
+  it("rejects attributes that belong to another kind", () => {
+    expect(
+      parse({ kind: "STANDARD", ...identity, ...box, attributes: { levels: 2 } }).success,
+    ).toBe(false);
+    expect(parse({ kind: "FUSE", ...identity, ...box, attributes: {} }).success).toBe(false);
+    expect(
+      parse({
+        kind: "GROUND_TERMINAL",
+        ...identity,
+        ...box,
+        railEdgeOffset: 0,
+        attributes: { levels: 2 },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects fractional lengths", () => {
+    expect(parse({ kind: "STANDARD", ...identity, ...box, width: 5.2 }).success).toBe(false);
+  });
+
+  it("rejects a rail offset on a component that isn't rail mounted", () => {
+    expect(parse({ kind: "STANDARD", ...identity, ...box, railEdgeOffset: 200 }).success).toBe(
+      false,
+    );
+    expect(
+      parse({ kind: "STANDARD", ...identity, ...box, railMount: true, railEdgeOffset: 200 })
+        .success,
+    ).toBe(true);
+  });
+
+  it("turns empty optional text into null", () => {
+    const r = ComponentInput.parse({
+      kind: "RAIL",
+      ...identity,
+      depth: 75,
+      code: " ",
+      description: "",
+    });
+    expect(r).toMatchObject({ code: null, description: null });
+  });
+});
+
+describe("componentColumns", () => {
+  it("fixes a rail at 35 mm wide, height 0, 2000 mm stock", () => {
+    const cols = componentColumns(ComponentInput.parse({ kind: "RAIL", ...identity, depth: 75 }));
+    expect(cols).toMatchObject({
+      width: RAIL_WIDTH,
+      height: 0,
+      depth: 75,
+      railMount: false,
+      railEdgeOffset: null,
+      attributes: { stockLength: DEFAULT_STOCK_LENGTH },
+    });
+  });
+
+  it("keeps a gutter's height for 3D only, 0 when not given", () => {
+    expect(
+      componentColumns(ComponentInput.parse({ kind: "GUTTER", ...identity, width: 600 })),
+    ).toMatchObject({ width: 600, height: 0, depth: 0 });
+  });
+
+  it("always mounts terminals on the rail, stackable by default", () => {
+    expect(
+      componentColumns(
+        ComponentInput.parse({ kind: "GROUND_TERMINAL", ...identity, ...box, railEdgeOffset: 150 }),
+      ),
+    ).toMatchObject({ railMount: true, railEdgeOffset: 150, stackable: true, inputVoltage: null });
+  });
+
+  it("drops electrical fields on kinds that don't use them", () => {
+    const cols = componentColumns(
+      ComponentInput.parse({
+        kind: "GUTTER",
+        ...identity,
+        width: 600,
+        inputVoltage: "24VDC",
+        phases: 3,
+      }),
+    );
+    expect(cols).toMatchObject({ inputVoltage: null, phases: null });
+  });
+});
+
+describe("attribute helpers", () => {
+  it("reads terminal levels and stock lengths", () => {
+    expect(terminalLevels({ kind: "TERMINAL_BLOCK", attributes: { levels: 3 } })).toBe(3);
+    expect(terminalLevels({ kind: "GROUND_TERMINAL", attributes: {} })).toBe(1);
+    expect(terminalLevels({ kind: "STANDARD", attributes: {} })).toBe(0);
+    expect(stockLength({ kind: "RAIL", attributes: { stockLength: 10000 } })).toBe(10000);
+    expect(stockLength({ kind: "GUTTER", attributes: {} })).toBe(DEFAULT_STOCK_LENGTH);
+    expect(stockLength({ kind: "FUSE", attributes: {} })).toBeNull();
+  });
+});

@@ -1,7 +1,11 @@
 import type { CreateUserInput } from "@cabinet-planner/shared";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll } from "vitest";
 import { buildApp, type AppDeps } from "../src/app.js";
 import { createPrisma } from "../src/db.js";
+import { LocalImageStore } from "../src/images.js";
 import { createUser } from "../src/services/users.js";
 import { testDatabaseUrl } from "./test-db.js";
 
@@ -10,6 +14,10 @@ export const COOKIE = "cp_session";
 export const db = createPrisma(testDatabaseUrl());
 afterAll(() => db.$disconnect());
 
+/** Uploaded images go to a temporary folder per test file. */
+export const uploadDir = mkdtempSync(join(tmpdir(), "cp-uploads-"));
+afterAll(() => rmSync(uploadDir, { recursive: true, force: true }));
+
 export function buildTestApp(overrides: Partial<AppDeps> = {}) {
   return buildApp({
     db,
@@ -17,6 +25,7 @@ export function buildTestApp(overrides: Partial<AppDeps> = {}) {
       await db.$queryRaw`SELECT 1`;
     },
     auth: { cookieName: COOKIE, secureCookies: false },
+    images: new LocalImageStore(uploadDir),
     ...overrides,
   });
 }

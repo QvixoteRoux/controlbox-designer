@@ -1,0 +1,14 @@
+import type { ComponentKind } from "@cabinet-planner/shared";
+
+export const COMPONENT_KIND_LABELS: Record<ComponentKind, string> = {
+  STANDARD: "Standard",
+  FUSE: "Fuse",
+  TERMINAL_BLOCK: "Terminal block",
+  GROUND_TERMINAL: "Ground terminal",
+  GUTTER: "Wire duct (gutter)",
+  RAIL: "DIN rail",
+};
+
+/** One line describing a catalog item, for pickers and tables. */
+export const partLabel = (c: { manufacturer: string; partNumber: string; code?: string | null }) =>
+  `${c.manufacturer} ${c.partNumber}${c.code ? ` (${c.code})` : ""}`;

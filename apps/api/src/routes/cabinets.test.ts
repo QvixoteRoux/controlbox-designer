@@ -495,3 +495,63 @@ describe("a released revision", () => {
     expect(Platen.parse((await detail(c.id)).platen)).toMatchObject({ height: 5500 });
   });
 });
+
+describe("a component mounted in a round hole", () => {
+  const add = (cabinetId: number, body: object) =>
+    call(designer, "POST", `${cabinetUrl(cabinetId)}/openings`, body);
+  const hole = (componentId: number | null) => ({
+    kind: "ROUND_HOLE",
+    face: "FRONT",
+    x: 500,
+    y: 500,
+    diameter: 225,
+    componentId,
+  });
+  const part = (partNumber: string, extra: object = {}) =>
+    db.component.create({
+      data: { manufacturer: "Acme", partNumber, height: 300, width: 300, depth: 400, ...extra },
+    });
+
+  it("is saved and shown on the opening", async () => {
+    const c = await newCabinet();
+    const button = await part("PB-1");
+
+    const res = await add(c.id, hole(button.id));
+
+    expect(res.statusCode, res.body).toBe(201);
+    expect(Opening.parse(res.json()).component).toMatchObject({
+      id: button.id,
+      partNumber: "PB-1",
+    });
+  });
+
+  it("must be active and fit in a hole", async () => {
+    const c = await newCabinet();
+    const old = await part("PB-OLD", { active: false });
+    const rail = await part("TS35", { kind: "RAIL", height: 0, width: 350, depth: 75 });
+
+    expect((await add(c.id, hole(old.id))).statusCode).toBe(400);
+    expect((await add(c.id, hole(rail.id))).statusCode).toBe(400);
+  });
+
+  it("stays when deactivated later, and goes when the hole changes kind", async () => {
+    const c = await newCabinet();
+    const button = await part("PB-1");
+    const opening = Opening.parse((await add(c.id, hole(button.id))).json());
+    await db.component.update({ where: { id: button.id }, data: { active: false } });
+    const url = `${cabinetUrl(c.id)}/openings/${opening.id}`;
+
+    const kept = await call(designer, "PUT", url, { ...hole(button.id), diameter: 300 });
+    expect(Opening.parse(kept.json()).componentId).toBe(button.id);
+
+    const rect = await call(designer, "PUT", url, {
+      kind: "RECT_HOLE",
+      face: "FRONT",
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    });
+    expect(Opening.parse(rect.json()).componentId).toBeNull();
+  });
+});

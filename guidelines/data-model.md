@@ -51,32 +51,44 @@ A database check rule enforces the right fields for each kind.
   - Saved as separate CABLE_GLAND openings (no array record), all in one transaction; edited and deleted one by one afterwards.
   - A label becomes a numbered prefix ("PG" → PG1, PG2…), row by row from the first hole. With one hole the label is kept as is.
   - The form warns before saving when the pitch is smaller than the hole diameter (neighbours overlap) or holes stick out past the face (`gridWarnings()`). Saving is still allowed.
-- Not built yet: picking a catalog component to mount in a round hole (comes with the component catalog).
+- A **round hole** can hold a catalog component (pushbutton, pilot light…): `component_id`, kinds STANDARD or FUSE only (`canMountInHole()`). A new choice must be active; the hole keeps a part deactivated later. Changing the hole to another kind clears it.
 
 ## Catalog (`components`)
 
 One table for every catalog item. The common columns are manufacturer, part number, code, type, input voltage, phases, height/width/depth, rail mount, rail edge offset, stackable and image.
 
-`kind` decides what `attributes` (JSON) holds. Each kind has its own Zod schema in `packages/shared/src/schemas/component.ts`:
+`kind` decides which fields the form and API take, and what `attributes` (JSON) holds. Each kind has its own input schema in `packages/shared/src/schemas/component.ts`; `componentColumns()` fills in the columns a kind doesn't use.
 
-| kind           | attributes                            | notes                                                                                                          |
-| -------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| STANDARD       | `{}`                                  | Most devices                                                                                                   |
-| FUSE           | `{ amperage: number, poles: number }` |                                                                                                                |
-| TERMINAL_BLOCK | `{ levels: number }`                  | Width, height and depth use the common columns                                                                 |
-| GUTTER         | `{}`                                  | Sized per placement: width = duct width, depth = duct height, height = 0. The length is set on each placement. |
-| RAIL           | `{ profile?: string }`                | Same pattern: width = 350 for 35 mm DIN rail, depth = rail height, length set per placement                    |
+| kind            | input                                                  | attributes                          | notes                                                                                                                       |
+| --------------- | ------------------------------------------------------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| STANDARD        | W × H × D, voltage, phases, rail mount + offset, stack | `{}`                                | Most devices. Sizes can be typed in inches (rounded to whole mm).                                                           |
+| FUSE            | same as STANDARD                                       | `{ amperage, poles }`               | Fuse holder and fuse are one item. Inches allowed.                                                                          |
+| TERMINAL_BLOCK  | W × H × D, rail offset (required), stackable           | `{ levels: 1–4 }`                   | Always rail mounted, stackable by default. Width is along the rail. 4 levels is rare.                                       |
+| GROUND_TERMINAL | same as TERMINAL_BLOCK                                 | `{}`                                | Green/yellow PE terminal, **always 1 level**, no colour choice.                                                             |
+| GUTTER          | width, height (optional, 0 = not given)                | `{ stockLength }` (default 2000 mm) | Stored as width = duct width, depth = duct height, height = 0. The width is what matters on the platen; height is for 3D.   |
+| RAIL            | profile height (7.5 or 15 mm)                          | `{ stockLength }` (default 2000 mm) | DIN rail, **always 35 mm wide** (width = 350, DB check `components_profile_shape`), height = 0. Mounting holes are ignored. |
+
+Rails and gutters are cut to fit: the length is set on each placement. A placed length over the stock length gets a warning in the editor, not a block.
 
 Field meanings:
 
 - `phases`: 1 or 3, for AC only. `NULL` for DC.
 - `rail_edge_offset`: the distance from the component's top edge to the rail's top edge, used for rail snapping.
-- `code`: the internal "ID" from the spec. Optional, and unique when set.
-- Rows that are in use are **never hard-deleted**. Set `active = false` and the editor hides them from the add list.
+- `code`: the internal "ID" from the spec. Optional, and unique when set. Manufacturer + part number is unique too; both give a clear 409.
+- Rows that are in use (on a platen or in a hole) are **never hard-deleted**. Set `active = false` and the editor hides them from the add list.
+- A component's **kind can't change** once it's in use.
+- One picture per component (see "Images" in `guidelines/stack.md`).
+
+## Cabinet and component types
+
+Two lookup lists managed on the **Types** page (`/api/types/cabinet-types`, `/api/types/component-types`), `components` permission.
+
+- Name unique, sort order (new ones go last), `active`.
+- A type in use can't be deleted (409): deactivate it. Inactive types are hidden from new choices; rows that already have one keep it.
 
 ## Cable glands (`cable_glands`)
 
-Only `size` (text, e.g. "M20", unique) and `hole_diameter`, plus an optional image (images come with the catalog feature).
+Only `size` (text, e.g. "M20", unique) and `hole_diameter`, plus an optional picture.
 
 - Managed on the **Cable glands** page; editing needs the `components` permission.
 - A gland used by any opening can't be deleted (409); deactivate it instead, which hides it from new openings.
@@ -84,6 +96,8 @@ Only `size` (text, e.g. "M20", unique) and `hole_diameter`, plus an optional ima
 ## Placements
 
 Each placement stores x, y, rotation, an optional length (gutter and rail only), `locked`, an optional `rail_id` (the rail it's snapped to), a tag (-K1…), z-order, and a `snapshot` that is filled on release.
+
+**Planned with the platen editor** (owner request, 2026-11-17; columns added then): terminal strips. See `guidelines/platen-editor.md`.
 
 ## Confirmed decisions
 

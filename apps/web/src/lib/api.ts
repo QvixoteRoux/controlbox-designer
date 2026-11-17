@@ -29,11 +29,14 @@ async function request<S extends z.ZodType>(
   const res = await fetch(path, {
     method,
     credentials: "same-origin",
-    // Only send a JSON content type with a body: Fastify rejects an empty JSON body.
-    ...(body !== undefined && {
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
+    // Files go as the raw body with their own type; anything else as JSON. Only send a JSON
+    // content type with a body: Fastify rejects an empty JSON body.
+    ...(body instanceof Blob
+      ? { headers: { "Content-Type": body.type }, body }
+      : body !== undefined && {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
   });
 
   if (!res.ok && !acceptStatuses.includes(res.status)) {
@@ -56,7 +59,12 @@ export const api = {
   put: <S extends z.ZodType>(path: string, body: unknown, schema?: S) =>
     request("PUT", path, { body, schema }),
   delete: (path: string) => request("DELETE", path),
+  /** DELETE that returns a body (e.g. removing an image returns the updated row). */
+  deleteWith: <S extends z.ZodType>(path: string, schema: S) => request("DELETE", path, { schema }),
 };
+
+/** URL of a stored catalog image (the DB keeps only its key). */
+export const imageUrl = (imagePath: string) => `/api/images/${imagePath}`;
 
 /** A user-facing message for any error thrown by a query or mutation. */
 export const errorMessage = (err: unknown) =>

@@ -17,6 +17,7 @@ All lengths and positions are **integers in 0.1 mm** in the DB, the API and the 
   export const toMm = (u: number) => u / 10;
   ```
 - Why integers: snapping and equality checks must be exact, and floats drift.
+- **Inches**: the catalog form for standard parts and fuses also takes sizes in inches. They're rounded to the **nearest whole millimetre** on save (`inchesToUnits()` in `units.ts`: 2.5 in = 63.5 mm → 64 mm), and stored like any other size. Nothing remembers that a size was typed in inches.
 
 ## Platen coordinates
 

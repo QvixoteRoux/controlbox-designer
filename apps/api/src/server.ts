@@ -1,9 +1,14 @@
 import { buildApp } from "./app.js";
 import { createPrisma } from "./db.js";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadEnv } from "./env.js";
+import { LocalImageStore } from "./images.js";
 
 const env = loadEnv();
 const prisma = createPrisma(env.DATABASE_URL);
+// A relative UPLOAD_DIR is relative to the repo root, like .env (src/ and dist/ are 3 levels down).
+const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 const app = await buildApp(
   {
@@ -15,6 +20,7 @@ const app = await buildApp(
       cookieName: env.SESSION_COOKIE_NAME,
       secureCookies: env.NODE_ENV === "production",
     },
+    images: new LocalImageStore(resolve(repoRoot, env.UPLOAD_DIR)),
   },
   { logger: { level: env.NODE_ENV === "production" ? "info" : "debug" } },
 );

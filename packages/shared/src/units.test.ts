@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toMm, toUnits } from "./units.js";
+import { inchesToUnits, toMm, toUnits, unitsToInches } from "./units.js";
 
 describe("toUnits", () => {
   it.each([
@@ -40,5 +40,24 @@ describe("toMm", () => {
     for (let u = -1000; u <= 1000; u++) {
       expect(toUnits(toMm(u))).toBe(u);
     }
+  });
+});
+
+describe("inchesToUnits", () => {
+  it.each([
+    [1, 250],
+    [2.5, 640], // 63.5 mm rounds up to 64 mm
+    [0.1, 30], // 2.54 mm → 3 mm
+    [0.01, 0], // 0.254 mm → 0 mm
+    [12, 3050], // 304.8 mm → 305 mm
+  ])("%d in → %d units, whole millimetres", (inches, units) => {
+    expect(inchesToUnits(inches)).toBe(units);
+  });
+});
+
+describe("unitsToInches", () => {
+  it("shows a stored size in inches with 3 decimals", () => {
+    expect(unitsToInches(254)).toBe(1);
+    expect(unitsToInches(640)).toBe(2.52);
   });
 });

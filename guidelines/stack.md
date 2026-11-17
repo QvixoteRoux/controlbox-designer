@@ -90,4 +90,10 @@ PostgreSQL 18 runs natively on the dev/host machine at `localhost:5432`.
   - Handlers parse input with the shared Zod schemas (`Schema.parse(request.body)`); a `ZodError` becomes a 400 with per-field messages.
   - Business-rule failures throw `HttpError(status, message)` from `apps/api/src/errors.ts`. Every error response has the shared `ApiErrorBody` shape.
 - Feature folders own their components, hooks and API calls. Only code shared across features goes in `components/` or `lib/`.
+- **Images** (components and cable glands):
+  - Upload: `PUT …/:id/image` with the file as the raw body and its own `Content-Type` (`image/png`, `image/jpeg` or `image/webp`; anything else gets a 415). The API checks the file's first bytes, not the header. Safety cap 20 MB. `DELETE …/:id/image` clears it.
+  - Stored through the `ImageStore` interface (`apps/api/src/images.ts`). Dev: `LocalImageStore` in `UPLOAD_DIR` (relative paths are from the repo root). Prod: an S3/MinIO store with the same interface, added with the Docker setup.
+  - The DB keeps only the key (`components/<id>-<uuid>.png`). Served at `GET /api/images/<key>` to signed-in users, cached as immutable.
+  - Files are **never deleted** when replaced or cleared: a released revision's snapshot may still point at the old key.
+  - No SVG: it can carry scripts.
 - Optimistic updates for drag in the editor; the server stays authoritative.

@@ -66,6 +66,8 @@ enum ComponentKind {
   STANDARD
   FUSE
   TERMINAL_BLOCK
+  /// Green/yellow PE terminal: always 1 level.
+  GROUND_TERMINAL
   GUTTER
   RAIL
 }
@@ -264,9 +266,11 @@ model CabinetOpening {
 // ────────────────────────────── Catalog ──────────────────────────────
 
 model ComponentType {
-  id        Int    @id @default(autoincrement())
-  name      String @unique
-  sortOrder Int    @default(0) @map("sort_order")
+  id        Int     @id @default(autoincrement())
+  name      String  @unique
+  sortOrder Int     @default(0) @map("sort_order")
+  /// Inactive types are hidden from new components; existing ones keep theirs.
+  active    Boolean @default(true)
 
   components Component[]
 
@@ -289,7 +293,8 @@ model Component {
   /// AC only: 1 or 3. NULL for DC or not applicable.
   phases         Int?
   /// Bounding box as mounted on the platen. For GUTTER / RAIL: height = 0,
-  /// width = profile width, depth = profile height; length lives on the placement.
+  /// width = profile width (RAIL: always 350), depth = profile height (GUTTER: 0 = not given);
+  /// the cut length lives on the placement.
   height         Int
   width          Int
   depth          Int

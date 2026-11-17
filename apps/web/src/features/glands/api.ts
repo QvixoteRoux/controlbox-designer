@@ -37,3 +37,11 @@ export const useUpdateGland = () =>
 
 export const useDeleteGland = () =>
   useGlandsMutation((id: number) => api.delete(`/api/cable-glands/${id}`));
+
+/** Uploads (File) or removes (null) a gland's picture. */
+export const useGlandImage = () =>
+  useGlandsMutation(({ id, file }: { id: number; file: File | null }) =>
+    file
+      ? api.put(`/api/cable-glands/${id}/image`, file, CableGland)
+      : api.deleteWith(`/api/cable-glands/${id}/image`, CableGland),
+  );

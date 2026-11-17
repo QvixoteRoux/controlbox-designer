@@ -1,4 +1,5 @@
 import {
+  canMountInHole,
   defaultPlatenSize,
   defaultWindow,
   gridPositions,
@@ -106,6 +107,16 @@ export async function getRevisionDetail(db: PrismaClient, ref: RevisionRef) {
 
 const openingInclude = {
   gland: { select: { id: true, size: true, holeDiameter: true } },
+  component: {
+    select: {
+      id: true,
+      kind: true,
+      manufacturer: true,
+      partNumber: true,
+      code: true,
+      description: true,
+    },
+  },
 } as const satisfies Prisma.CabinetOpeningInclude;
 
 export async function getCabinet(db: PrismaClient, ref: RevisionRef, cabinetId: number) {
@@ -239,13 +250,14 @@ function openingData(input: OpeningInput) {
     height: null,
     diameter: null,
     glandId: null,
+    componentId: null,
   };
   switch (input.kind) {
     case "WINDOW":
     case "RECT_HOLE":
       return { ...common, width: input.width, height: input.height };
     case "ROUND_HOLE":
-      return { ...common, diameter: input.diameter };
+      return { ...common, diameter: input.diameter, componentId: input.componentId };
     case "CABLE_GLAND":
       return { ...common, glandId: input.glandId };
   }
@@ -257,6 +269,26 @@ async function assertGlandUsable(tx: Tx, glandId: number, currentGlandId: number
   if (!gland) throw new HttpError(400, "Unknown cable gland");
   if (!gland.active && gland.id !== currentGlandId) {
     throw new HttpError(400, `Cable gland ${gland.size} is no longer active`);
+  }
+}
+
+/**
+ * A component newly mounted in a hole must be active and of a kind that fits in a hole; an
+ * opening may keep a component that was deactivated later.
+ */
+async function assertComponentMountable(
+  tx: Tx,
+  componentId: number | null,
+  currentComponentId: number | null,
+) {
+  if (componentId === null || componentId === currentComponentId) return;
+  const component = await tx.component.findUnique({ where: { id: componentId } });
+  if (!component) throw new HttpError(400, "Unknown component");
+  if (!canMountInHole(component.kind)) {
+    throw new HttpError(400, `${component.partNumber} can't be mounted in a hole`);
+  }
+  if (!component.active) {
+    throw new HttpError(400, `Component ${component.partNumber} is no longer active`);
   }
 }
 
@@ -276,6 +308,7 @@ export async function createOpening(
   return inEditableRevision(db, revision.id, async (tx) => {
     await findCabinet(tx, revision.id, cabinetId);
     if (input.kind === "CABLE_GLAND") await assertGlandUsable(tx, input.glandId, null);
+    if (input.kind === "ROUND_HOLE") await assertComponentMountable(tx, input.componentId, null);
     return tx.cabinetOpening.create({
       data: { cabinetId, ...openingData(input) },
       include: openingInclude,
@@ -322,7 +355,7 @@ export async function createGlandArray(
   });
 }
 
-/** Replaces an opening (its kind may change). A mounted component, if any, is kept. */
+/** Replaces an opening (its kind may change). Only round holes keep a mounted component. */
 export async function replaceOpening(
   db: PrismaClient,
   ref: RevisionRef,
@@ -335,6 +368,9 @@ export async function replaceOpening(
     await findCabinet(tx, revision.id, cabinetId);
     const current = await findOpening(tx, cabinetId, openingId);
     if (input.kind === "CABLE_GLAND") await assertGlandUsable(tx, input.glandId, current.glandId);
+    if (input.kind === "ROUND_HOLE") {
+      await assertComponentMountable(tx, input.componentId, current.componentId);
+    }
     return tx.cabinetOpening.update({
       where: { id: openingId },
       data: openingData(input),

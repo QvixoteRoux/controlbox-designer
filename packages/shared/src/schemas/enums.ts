@@ -20,5 +20,12 @@ export type HingeSide = z.infer<typeof HingeSide>;
 export const OpeningKind = z.enum(["WINDOW", "ROUND_HOLE", "RECT_HOLE", "CABLE_GLAND"]);
 export type OpeningKind = z.infer<typeof OpeningKind>;
 
-export const ComponentKind = z.enum(["STANDARD", "FUSE", "TERMINAL_BLOCK", "GUTTER", "RAIL"]);
+export const ComponentKind = z.enum([
+  "STANDARD",
+  "FUSE",
+  "TERMINAL_BLOCK",
+  "GROUND_TERMINAL",
+  "GUTTER",
+  "RAIL",
+]);
 export type ComponentKind = z.infer<typeof ComponentKind>;

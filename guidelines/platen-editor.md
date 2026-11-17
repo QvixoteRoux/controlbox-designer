@@ -27,9 +27,19 @@ The snap tolerance defaults to 5 mm and can be changed in user settings. Alt whi
    - **Stackable** components on the same rail butt up against each other with no gap.
 3. **Grid snap** is optional, 5 mm by default. It applies only when nothing above snapped.
 
+## Terminal strips (planned, owner request 2026-11-17)
+
+- A placed TERMINAL_BLOCK or GROUND_TERMINAL can be an **array in one direction only**: N terminals side by side along the rail (the narrow direction), one placement with a `count`.
+- TERMINAL_BLOCK strips also have:
+  - an optional **group label**
+  - **bridged levels**: the levels whose terminals are all joined by a metal bridge strip. Drawn as a bar across the group, with a note.
+  - a **colour**: light grey (default), dark grey, beige, red, green, blue or yellow.
+- GROUND_TERMINAL strips: array only. Always drawn half green, half yellow; no label, bridge or colour.
+
 ## Checks (warnings, not blocks)
 
 - Overlapping bounding boxes are highlighted in red.
+- A rail or gutter longer than its catalog stock length (2000 mm by default) is flagged.
 - A placement outside the platen is highlighted.
 - A component deeper than the cabinet depth minus the platen offset is flagged once a platen offset field exists.
 

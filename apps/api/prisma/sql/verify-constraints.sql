@@ -14,6 +14,7 @@ WITH expected(name, kind) AS (
     ('components_size_non_negative',   'check'),
     ('components_phases',              'check'),
     ('components_rail_offset',         'check'),
+    ('components_profile_shape',       'check'),
     ('placements_rotation',            'check'),
     ('cabinet_openings_shape',         'check'),
     ('machine_revisions_one_working',  'index'),

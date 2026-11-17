@@ -315,7 +315,14 @@ export function CabinetPage() {
                         <Table.Td>
                           {toMm(o.x)}, {toMm(o.y)}
                         </Table.Td>
-                        <Table.Td>{openingSize(o)}</Table.Td>
+                        <Table.Td>
+                          {openingSize(o)}
+                          {o.component && (
+                            <Text size="xs" c="dimmed">
+                              {o.component.manufacturer} {o.component.partNumber}
+                            </Text>
+                          )}
+                        </Table.Td>
                         <Table.Td>
                           {editable && (
                             <Group gap={4} justify="flex-end" wrap="nowrap">

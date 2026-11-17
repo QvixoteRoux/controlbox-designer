@@ -128,3 +128,23 @@ describe("cable glands", () => {
     expect(list).toEqual([expect.objectContaining({ size: "M20", inUse: true })]);
   });
 });
+
+describe("gland images", () => {
+  it("are uploaded and removed like component images", async () => {
+    const gland = await addGland();
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+
+    const res = await app.inject({
+      method: "PUT",
+      url: `/api/cable-glands/${gland.id}/image`,
+      cookies: catalog,
+      headers: { "content-type": "image/png" },
+      payload: png,
+    });
+
+    expect(res.statusCode, res.body).toBe(200);
+    expect(CableGland.parse(res.json()).imagePath).toMatch(/^cable-glands\/\d+-.+\.png$/);
+    const cleared = await call(catalog, "DELETE", `/api/cable-glands/${gland.id}/image`);
+    expect(CableGland.parse(cleared.json()).imagePath).toBeNull();
+  });
+});

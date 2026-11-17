@@ -62,6 +62,15 @@ ALTER TABLE components
   ADD CONSTRAINT components_rail_offset
   CHECK (rail_mount OR rail_edge_offset IS NULL);
 
+-- Components: rails and gutters are profiles (length set per placement, so height = 0);
+-- DIN rail is always 35 mm wide. Added in migration catalog.
+ALTER TABLE components
+  ADD CONSTRAINT components_profile_shape
+  CHECK (
+       (kind NOT IN ('RAIL', 'GUTTER') OR height = 0)
+   AND (kind <> 'RAIL' OR width = 350)
+  );
+
 -- Placements: right-angle rotations only.
 ALTER TABLE placements
   ADD CONSTRAINT placements_rotation

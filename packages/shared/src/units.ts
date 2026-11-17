@@ -6,3 +6,14 @@ export const toUnits = (mm: number) => Math.round(mm * 10);
 
 /** Stored units (integer 0.1 mm) → millimetres. 52 → 5.2. */
 export const toMm = (u: number) => u / 10;
+
+export const MM_PER_INCH = 25.4;
+
+/**
+ * Inches typed in a catalog form → stored units, rounded to the nearest **whole millimetre**
+ * (catalog sizes in inches are nominal). 2.5 in = 63.5 mm → 64 mm → 640.
+ */
+export const inchesToUnits = (inches: number) => toUnits(Math.round(inches * MM_PER_INCH));
+
+/** Stored units → inches, for showing a size in an inch field (3 decimals). */
+export const unitsToInches = (u: number) => Math.round((toMm(u) / MM_PER_INCH) * 1000) / 1000;

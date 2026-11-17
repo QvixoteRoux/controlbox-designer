@@ -14,7 +14,7 @@ export async function addCabinetContent(revisionId: number) {
       height: 0,
       width: 350,
       depth: 75,
-      attributes: { profile: "TS35" },
+      attributes: { stockLength: 20000 },
     },
   });
   const contactor = await db.component.create({

@@ -64,7 +64,7 @@ describe("releaseRevision", () => {
     });
     const rail = await db.placement.findUniqueOrThrow({ where: { id: c.railPlacement.id } });
     expect(PlacementSnapshot.parse(rail.snapshot).component.attributes).toEqual({
-      profile: "TS35",
+      stockLength: 20000,
     });
 
     const openings = await db.cabinetOpening.findMany({ orderBy: { id: "asc" } });

@@ -1,4 +1,5 @@
 import {
+  canMountInHole,
   Face,
   faceSize,
   GlandArrayInput,
@@ -28,6 +29,8 @@ import { useQuery } from "@tanstack/react-query";
 import { errorMessage } from "../../lib/api";
 import { formatMm } from "../../lib/format";
 import { convertingResolver, mmInputProps, mmToUnits, unitsToMm } from "../../lib/forms";
+import { componentsQuery } from "../catalog/api";
+import { partLabel } from "../catalog/labels";
 import { glandsQuery } from "../glands/api";
 import { useCreateGlandArray, useSaveOpening, type RevisionRef } from "./api";
 import { FACE_LABELS, KIND_LABELS } from "./labels";
@@ -41,6 +44,8 @@ interface Values {
   height: number | string;
   diameter: number | string;
   glandId: string | null;
+  /** Round holes: catalog component mounted in the hole. */
+  componentId: string | null;
   label: string;
   /** Cable glands only, when adding: create a grid instead of one hole. */
   array: boolean;
@@ -62,7 +67,12 @@ function toOpening(v: Values) {
     case "RECT_HOLE":
       return { kind: v.kind, ...base, width: mmToUnits(v.width), height: mmToUnits(v.height) };
     case "ROUND_HOLE":
-      return { kind: v.kind, ...base, diameter: mmToUnits(v.diameter) };
+      return {
+        kind: v.kind,
+        ...base,
+        diameter: mmToUnits(v.diameter),
+        componentId: v.componentId === null ? null : Number(v.componentId),
+      };
     case "CABLE_GLAND":
       return { kind: v.kind, ...base, glandId: glandId(v) };
   }
@@ -129,6 +139,7 @@ function OpeningForm({
   const save = useSaveOpening(revision, cabinet.id);
   const createArray = useCreateGlandArray(revision, cabinet.id);
   const glands = useQuery(glandsQuery);
+  const components = useQuery(componentsQuery);
   const mm = (u: number | null | undefined) => (u == null ? "" : unitsToMm(u));
   // Arrays are only for adding cable glands; an existing opening is edited on its own.
   const isArray = (v: Values) => !opening && v.kind === "CABLE_GLAND" && v.array;
@@ -143,6 +154,7 @@ function OpeningForm({
       height: mm(opening?.height),
       diameter: mm(opening?.diameter),
       glandId: opening?.glandId == null ? null : String(opening.glandId),
+      componentId: opening?.componentId == null ? null : String(opening.componentId),
       label: opening?.label ?? "",
       array: false,
       columns: 2,
@@ -164,6 +176,14 @@ function OpeningForm({
       label: `${g.size} (hole ${formatMm(g.holeDiameter)})${g.active ? "" : " – inactive"}`,
     }));
   const selectedGland = glands.data?.find((g) => String(g.id) === values.glandId);
+
+  // Parts that fit in a hole: active ones, plus the current one even if deactivated since.
+  const componentOptions = (components.data ?? [])
+    .filter((c) => canMountInHole(c.kind) && (c.active || c.id === opening?.componentId))
+    .map((c) => ({
+      value: String(c.id),
+      label: `${partLabel(c)}${c.description ? ` – ${c.description}` : ""}${c.active ? "" : " (inactive)"}`,
+    }));
 
   // Live warnings for the array, once enough is filled in to place the holes.
   const parsedArray = arrayMode ? GlandArrayInput.safeParse(toGlandArray(values)) : null;
@@ -255,7 +275,19 @@ function OpeningForm({
           </SimpleGrid>
         )}
         {kind === "ROUND_HOLE" && (
-          <NumberInput label="Diameter" {...mmInputProps} {...form.getInputProps("diameter")} />
+          <>
+            <NumberInput label="Diameter" {...mmInputProps} {...form.getInputProps("diameter")} />
+            <Select
+              label="Mounted component"
+              description="Optional: pushbutton, pilot light, selector…"
+              placeholder="None"
+              data={componentOptions}
+              clearable
+              searchable
+              nothingFoundMessage="No matching parts in the catalog"
+              {...form.getInputProps("componentId")}
+            />
+          </>
         )}
 
         {arrayMode && (

@@ -47,6 +47,17 @@ export async function updateGland(db: PrismaClient, id: number, patch: UpdateCab
   }
 }
 
+/** Sets or clears a gland's picture (undefined: only checks the gland exists). */
+export async function setGlandImage(
+  db: PrismaClient,
+  id: number,
+  imagePath: string | null | undefined,
+) {
+  const { _count, ...gland } = await findGland(db, id);
+  if (imagePath === undefined) return gland;
+  return db.cableGland.update({ where: { id }, data: { imagePath } });
+}
+
 /** Only unused glands can be deleted; used ones must be deactivated (CLAUDE.md rule 7). */
 export async function deleteGland(db: PrismaClient, id: number) {
   const gland = await findGland(db, id);
