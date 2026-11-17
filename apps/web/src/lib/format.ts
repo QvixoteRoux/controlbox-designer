@@ -1,3 +1,11 @@
+import { toMm } from "@cabinet-planner/shared";
+
+/** 0.1 mm units → "52.5 mm". */
+export const formatMm = (units: number) => `${toMm(units)} mm`;
+
+/** Several lengths in 0.1 mm → "600 × 400 × 200 mm". */
+export const formatDims = (...units: number[]) => `${units.map(toMm).join(" × ")} mm`;
+
 const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 const date = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 

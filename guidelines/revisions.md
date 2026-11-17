@@ -40,5 +40,6 @@ The catalog changes over time. A released layout must still show exactly what wa
 ## Enforcement
 
 - Every service that writes revision data starts with `assertRevisionEditable(revisionId)`, which throws 409 if the revision is RELEASED.
+  - Use `inEditableRevision(db, revisionId, tx => …)`: it runs the check and the write in **one transaction** and share-locks the revision row. A release takes `FOR UPDATE` on the same row, so an edit can't slip in while a release is committing.
 - The editor opens released revisions in view-only mode, with a "Create new revision" button.
 - Optional later step: a DB trigger that rejects writes under released revisions, as a second safety net.

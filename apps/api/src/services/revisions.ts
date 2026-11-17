@@ -26,12 +26,13 @@ export const revisionSummaryInclude = {
 /**
  * Every service that writes revision data (cabinets, openings, platens, placements) calls this
  * first. 404 if the revision doesn't exist, 409 if it's released.
+ *
+ * Call it inside the same transaction as the write (see `inEditableRevision`): it share-locks the
+ * revision row, so a release (which takes FOR UPDATE) waits for in-flight edits and vice versa.
  */
 export async function assertRevisionEditable(db: Db, revisionId: number) {
-  const revision = await db.machineRevision.findUnique({
-    where: { id: revisionId },
-    select: { rev: true, status: true },
-  });
+  const [revision] = await db.$queryRaw<{ rev: number; status: string }[]>`
+    SELECT rev, status FROM machine_revisions WHERE id = ${revisionId} FOR SHARE`;
   if (!revision) throw new HttpError(404, "Revision not found");
   if (revision.status === "RELEASED") {
     throw new HttpError(
@@ -39,6 +40,18 @@ export async function assertRevisionEditable(db: Db, revisionId: number) {
       `${formatRev(revision.rev)} is released and read-only. Create a new revision to make changes.`,
     );
   }
+}
+
+/** Runs `write` in a transaction, after checking (and locking) that the revision is editable. */
+export function inEditableRevision<T>(
+  db: PrismaClient,
+  revisionId: number,
+  write: (tx: Prisma.TransactionClient) => Promise<T>,
+) {
+  return db.$transaction(async (tx) => {
+    await assertRevisionEditable(tx, revisionId);
+    return write(tx);
+  });
 }
 
 /** Rev 001 (WORKING) for a new machine. */

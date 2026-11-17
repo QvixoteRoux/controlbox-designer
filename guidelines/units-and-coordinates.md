@@ -29,9 +29,14 @@ All lengths and positions are **integers in 0.1 mm** in the DB, the API and the 
 ## Cabinet faces
 
 - Faces are named in the cabinet's own frame, as manufactured: `FRONT` (the door), `BACK`, `LEFT`, `RIGHT`, `TOP`, `BOTTOM`. LEFT and RIGHT are as seen from the front.
-- Each face has its own 2D system with the **origin at the face centre**. You view the face **from outside the cabinet**, with +x right and +y up.
+- Each face has its own 2D system with the **origin at the face's top-left corner**. You view the face **from outside the cabinet**, with +x right and +y down (the same directions as the platen).
 - For TOP and BOTTOM, view from outside with FRONT toward you (at the bottom of the view).
-- `opening.x / y` is the **centre** of the window, hole or gland.
+- `opening.x / y` is:
+  - the **centre** for round holes and cable glands
+  - the **top-left corner** for windows and rectangular holes
+- A position inside the face is always ≥ 0. Negative values (or past the far edge) are allowed and shown as "outside the face" warnings.
+- Because positions are measured from the top-left corner, resizing a cabinet keeps every opening at the same distance from that corner. Openings near the right or bottom edge may then end up off the face (and get flagged).
+- Changed on 2026-11-17 from "centre origin, +y up". Migration `opening_origin_top_left` converted the stored positions.
 - Face size:
   - FRONT and BACK: width × height
   - LEFT and RIGHT: depth × height

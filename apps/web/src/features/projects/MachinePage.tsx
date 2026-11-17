@@ -21,6 +21,7 @@ import { ConfirmDeleteModal } from "../../components/ConfirmDeleteModal";
 import { errorMessage } from "../../lib/api";
 import { formatDateTime } from "../../lib/format";
 import { useCurrentUser } from "../auth/api";
+import { revisionPath } from "../cabinets/api";
 import { machineQuery, useCreateRevision, useDeleteMachine } from "./api";
 import { MachineFormModal } from "./MachineFormModal";
 import { ReleaseModal } from "./ReleaseModal";
@@ -115,7 +116,7 @@ export function MachinePage() {
       </Group>
 
       <Table.ScrollContainer minWidth={720}>
-        <Table verticalSpacing="sm">
+        <Table verticalSpacing="sm" highlightOnHover>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Revision</Table.Th>
@@ -127,7 +128,11 @@ export function MachinePage() {
           </Table.Thead>
           <Table.Tbody>
             {m.revisions.map((r) => (
-              <Table.Tr key={r.id}>
+              <Table.Tr
+                key={r.id}
+                style={{ cursor: "pointer" }}
+                onClick={() => void navigate(revisionPath({ projectId, machineId, rev: r.rev }))}
+              >
                 <Table.Td ff="monospace">{formatRev(r.rev)}</Table.Td>
                 <Table.Td>
                   <StatusBadge status={r.status} />
@@ -162,7 +167,7 @@ export function MachinePage() {
       </Table.ScrollContainer>
 
       <Text size="sm" c="dimmed">
-        Cabinets and the platen layout for each revision arrive with the cabinets feature.
+        Click a revision to see its cabinets.
       </Text>
 
       <MachineFormModal

@@ -26,8 +26,12 @@ User 1─* Session
 
 - `number` is unique within a revision.
 - `type` comes from the `cabinet_types` lookup table. Seed it with Control, Power, Jumper, Safety, Motion, Comms and General; admins can add more later.
-- **Window yes/no is derived**: a cabinet has a window when it has an opening of kind `WINDOW`. The Yes/No toggle in the UI creates or removes a default window.
-- `has_platen` off keeps the platen row, so switching it back on restores the layout.
+- `number` defaults to the next free number in the revision when left out.
+- Height and width must be more than 50 mm, so the default platen fits.
+- **Window yes/no is derived**: a cabinet has a window when it has an opening of kind `WINDOW`. The Yes/No switch (`PUT …/window`):
+  - Yes: if there's no window, adds one centred on FRONT at half the door's width and height (`defaultWindow()` in `packages/shared/src/faces.ts`). No form; edit it in the openings list.
+  - No: removes **every** window on the cabinet. Holes and glands stay.
+- Every cabinet gets a platen row on creation (default size). `has_platen` off keeps the row, so switching it back on restores the size and layout.
 - `other_voltages`: a list of strings, which can be empty.
 
 ## Openings (`cabinet_openings`)
@@ -40,6 +44,14 @@ User 1─* Session
 | CABLE_GLAND | face, x, y, gland (the diameter comes from the catalog) |
 
 A database check rule enforces the right fields for each kind.
+
+- Openings that stick out past their face, or overlap another opening on the same face, are **saved anyway** and shown in red as warnings (`openingWarnings()` in `packages/shared/src/faces.ts`). Face sizes follow `guidelines/units-and-coordinates.md`.
+- A gland opening needs an active gland when it's created or switched to another gland; it keeps its gland if that gland is deactivated later.
+- **Gland arrays** (`POST …/openings/gland-array`, cable glands only): columns × rows of one gland. x / y is the **centre of the first (top-left) hole**; the grid grows to the right and down (+x, +y), spaced **centre to centre** by `pitchX` / `pitchY` (`gridPositions()` in `faces.ts`). At most 200 holes.
+  - Saved as separate CABLE_GLAND openings (no array record), all in one transaction; edited and deleted one by one afterwards.
+  - A label becomes a numbered prefix ("PG" → PG1, PG2…), row by row from the first hole. With one hole the label is kept as is.
+  - The form warns before saving when the pitch is smaller than the hole diameter (neighbours overlap) or holes stick out past the face (`gridWarnings()`). Saving is still allowed.
+- Not built yet: picking a catalog component to mount in a round hole (comes with the component catalog).
 
 ## Catalog (`components`)
 
@@ -64,7 +76,10 @@ Field meanings:
 
 ## Cable glands (`cable_glands`)
 
-Only `size` (text, e.g. "M20") and `hole_diameter`, plus an optional image.
+Only `size` (text, e.g. "M20", unique) and `hole_diameter`, plus an optional image (images come with the catalog feature).
+
+- Managed on the **Cable glands** page; editing needs the `components` permission.
+- A gland used by any opening can't be deleted (409); deactivate it instead, which hides it from new openings.
 
 ## Placements
 

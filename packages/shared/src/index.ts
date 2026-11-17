@@ -10,3 +10,5 @@ export * from "./schemas/component.js";
 export * from "./schemas/health.js";
 export * from "./schemas/error.js";
 export * from "./schemas/snapshot.js";
+export * from "./schemas/gland.js";
+export * from "./faces.js";

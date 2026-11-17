@@ -32,6 +32,7 @@ export function AppLayout() {
             <Text fw={700}>Cabinet Planner</Text>
             <Group gap={4} wrap="nowrap">
               <NavButton to="/" label="Projects" />
+              <NavButton to="/cable-glands" label="Cable glands" />
               {can(user, "admin") && <NavButton to="/users" label="Users" />}
             </Group>
           </Group>

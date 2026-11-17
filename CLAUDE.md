@@ -21,7 +21,7 @@ TypeScript everywhere · pnpm workspaces
 ## Hard rules
 
 1. **Lengths are integers in 0.1 mm** in the DB, the API and the shared types. Convert to and from mm only at the UI edge with `packages/shared/src/units.ts`. Never use floats for lengths.
-2. **Coordinates:** the platen origin is its top-left corner with +y down. Cabinet-face origins are at the face centre with +y up, viewed from outside. → `guidelines/units-and-coordinates.md`
+2. **Coordinates:** the platen and every cabinet face have their origin at the top-left corner, with +x right and +y down (faces viewed from outside). Round holes and glands are placed by their centre; windows and rectangular holes by their top-left corner. → `guidelines/units-and-coordinates.md`
 3. **Released revisions are read-only.** Every write that touches revision data calls `assertRevisionEditable()` first. → `guidelines/revisions.md`
 4. **Every write endpoint checks permissions** with `can(user, 'projects' | 'components' | 'admin')` from `packages/shared`. → `guidelines/permissions.md`
 5. **The Zod schemas in `packages/shared` are the single source of truth** for request and response shapes. Don't redefine those types inside the apps.

@@ -237,7 +237,8 @@ model CabinetOpening {
   cabinetId   Int         @map("cabinet_id")
   kind        OpeningKind
   face        Face
-  /// Centre of the opening, from the face centre. +x right, +y up, viewed from outside.
+  /// From the face's top-left corner, +x right, +y down, viewed from outside.
+  /// Centre of round holes and glands; top-left corner of windows and rectangular holes.
   x           Int
   y           Int
   /// WINDOW and RECT_HOLE only.

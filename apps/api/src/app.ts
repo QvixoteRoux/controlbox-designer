@@ -3,6 +3,8 @@ import { registerAuth, type AuthConfig } from "./auth/plugin.js";
 import { errorHandler } from "./errors.js";
 import type { PrismaClient } from "./generated/prisma/client.js";
 import { authRoutes } from "./routes/auth.js";
+import { cabinetsRoutes } from "./routes/cabinets.js";
+import { glandsRoutes } from "./routes/glands.js";
 import { healthRoutes } from "./routes/health.js";
 import { projectsRoutes } from "./routes/projects.js";
 import { usersRoutes } from "./routes/users.js";
@@ -24,6 +26,8 @@ export async function buildApp(deps: AppDeps, options: FastifyServerOptions = {}
       await api.register(authRoutes, { db: deps.db, auth: deps.auth });
       await api.register(usersRoutes, { db: deps.db });
       await api.register(projectsRoutes, { db: deps.db });
+      await api.register(cabinetsRoutes, { db: deps.db });
+      await api.register(glandsRoutes, { db: deps.db });
     },
     { prefix: "/api" },
   );
