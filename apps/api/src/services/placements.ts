@@ -15,7 +15,13 @@ import {
   type UpdatePlacementInput,
 } from "@cabinet-planner/shared";
 import { HttpError } from "../errors.js";
-import type { Component, Placement, Prisma, PrismaClient } from "../generated/prisma/client.js";
+import type {
+  Component,
+  ComponentType,
+  Placement,
+  Prisma,
+  PrismaClient,
+} from "../generated/prisma/client.js";
 import { contextOf, findCabinet, findRevision, type RevisionRef } from "./cabinets.js";
 import { inEditableRevision } from "./revisions.js";
 
@@ -24,7 +30,11 @@ import { inEditableRevision } from "./revisions.js";
 
 type Tx = Prisma.TransactionClient;
 
-const livePart = (c: Component): PlacedPart => ({
+/** A component with its type, for the type's fill colour. */
+type PartRow = Component & { type: ComponentType | null };
+const withType = { component: { include: { type: true } } } as const;
+
+const livePart = (c: PartRow): PlacedPart => ({
   componentId: c.id,
   kind: c.kind,
   manufacturer: c.manufacturer,
@@ -38,12 +48,13 @@ const livePart = (c: Component): PlacedPart => ({
   railEdgeOffset: c.railEdgeOffset,
   snappable: c.snappable,
   expandable: c.expandable,
+  fillColor: c.type?.fillColor ?? null,
   attributes: c.attributes as PlacedPart["attributes"],
   active: c.active,
 });
 
 /** Released placements draw from their snapshot; working ones from the live catalog. */
-function toPlacement(p: Placement & { component: Component }) {
+function toPlacement(p: Placement & { component: PartRow }) {
   const snapshot = p.snapshot === null ? null : PlacementSnapshot.safeParse(p.snapshot);
   const part = snapshot?.success
     ? { ...snapshot.data.component, active: p.component.active }
@@ -73,7 +84,7 @@ export async function getLayout(db: PrismaClient, ref: RevisionRef, cabinetId: n
   const cabinet = await findCabinet(db, revision.id, cabinetId);
   const platen = await db.platen.findUnique({
     where: { cabinetId },
-    include: { placements: { include: { component: true }, orderBy: placementOrder } },
+    include: { placements: { include: withType, orderBy: placementOrder } },
   });
   return {
     context: contextOf(revision),
@@ -106,7 +117,7 @@ async function findPlaten(tx: Tx, revisionId: number, cabinetId: number) {
 async function findPlacement(tx: Tx, platenId: number, placementId: number) {
   const placement = await tx.placement.findUnique({
     where: { id: placementId },
-    include: { component: true },
+    include: withType,
   });
   if (placement?.platenId !== platenId) throw new HttpError(404, "Placement not found");
   return placement;
@@ -128,7 +139,7 @@ async function assertRailFits(
   }
   const rail = await tx.placement.findUnique({
     where: { id: railId },
-    include: { component: true },
+    include: withType,
   });
   if (rail?.platenId !== platenId || rail.component.kind !== "RAIL") {
     throw new HttpError(400, "That rail isn't on this platen");
@@ -138,7 +149,7 @@ async function assertRailFits(
   }
 }
 
-const geometry = (p: Placement & { component: Component }): PlacedGeometry => ({
+const geometry = (p: Placement & { component: PartRow }): PlacedGeometry => ({
   id: p.id,
   x: p.x,
   y: p.y,
@@ -156,7 +167,7 @@ async function carryRailParts(
   railId: number,
   patch: UpdatePlacementInput,
 ) {
-  const all = await tx.placement.findMany({ where: { platenId }, include: { component: true } });
+  const all = await tx.placement.findMany({ where: { platenId }, include: withType });
   const before = all.map(geometry);
   const after = withPatch(before, railId, patch);
   for (const [i, p] of after.entries()) {
@@ -240,7 +251,7 @@ async function createIn(tx: Tx, platenId: number, input: CreateFields) {
       locked: input.locked ?? false,
       zIndex: input.zIndex ?? (top._max.zIndex ?? -1) + 1,
     },
-    include: { component: true },
+    include: withType,
   });
 }
 
@@ -277,7 +288,7 @@ async function updateIn(
   return tx.placement.update({
     where: { id: placementId },
     data: patch,
-    include: { component: true },
+    include: withType,
   });
 }
 
@@ -369,7 +380,7 @@ export const applyLayoutChanges = (
 
     const placements = await tx.placement.findMany({
       where: { platenId },
-      include: { component: true },
+      include: withType,
       orderBy: placementOrder,
     });
     return {

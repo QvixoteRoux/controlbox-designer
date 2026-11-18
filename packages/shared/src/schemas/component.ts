@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Id, IdParams, NonNegativeUnits, PositiveUnits, Timestamp } from "./common.js";
+import { HexColor, Id, IdParams, NonNegativeUnits, PositiveUnits, Timestamp } from "./common.js";
 import { ComponentKind } from "./enums.js";
 
 // One catalog table; `kind` decides which fields apply and what `attributes` holds
@@ -325,6 +325,8 @@ export const CatalogType = z.object({
   name: z.string(),
   sortOrder: z.number().int(),
   active: z.boolean(),
+  /** Component types only: the fill colour of their parts in the editor (null: the kind default). */
+  fillColor: z.string().nullable(),
 });
 export type CatalogType = z.infer<typeof CatalogType>;
 export const CatalogTypeListItem = CatalogType.extend({ inUse: z.boolean() });
@@ -338,6 +340,8 @@ const TypeName = Text(50);
 export const CreateCatalogTypeInput = z.object({
   name: TypeName,
   sortOrder: z.number().int().min(0).max(9999).optional(),
+  /** Component types only. */
+  fillColor: HexColor.nullable().optional(),
 });
 export type CreateCatalogTypeInput = z.infer<typeof CreateCatalogTypeInput>;
 
@@ -346,6 +350,8 @@ export const UpdateCatalogTypeInput = z
     name: TypeName,
     sortOrder: z.number().int().min(0).max(9999),
     active: z.boolean(),
+    /** Component types only; null clears it. */
+    fillColor: HexColor.nullable(),
   })
   .partial()
   .refine((t) => Object.keys(t).length > 0, "Nothing to update");

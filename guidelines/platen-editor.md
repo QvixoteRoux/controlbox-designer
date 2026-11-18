@@ -2,7 +2,7 @@
 
 ## Layout
 
-- **Left:** a searchable catalog list grouped by kind and type. Buttons there open the catalog popup to add or edit a component; it's the same popup as the Catalog menu.
+- **Left:** a searchable catalog list in collapsible groups: kind, then type (in the types' order, "No type" last; a type with a fill colour shows its swatch). A search opens every group with a match; which groups are open is remembered in the browser. Buttons there open the catalog popup to add or edit a component; it's the same popup as the Catalog menu.
 - **Centre:** the Konva stage.
   - Layers from back to front: platen outline and grid → rails and gutters → components → snap guides and selection.
   - **Captions** (part number, or the tag when set): rails and gutters write it along their length, followed by their cut length in both units (`TS35x7.5 · 1200 mm / 47.24 in`, `formatLength()` in `units.ts`). A rail's caption sits about 20% from its top edge (its right edge when vertical) so the dashed centre line doesn't strike it through. Every other part writes it **90° counterclockwise** (owner, 2026-11-18): at 0° it reads bottom to top (tilt your head left), so the long part numbers of narrow parts side by side on a rail aren't cut off when zoomed out. The caption turns with the part, so at 90° it reads left to right. Part captions are up to 13 px on screen, rails and gutters up to 11 px; on a narrow part the caption shrinks to fit (0.4 × the part's width, 0.3 on strips and rails).

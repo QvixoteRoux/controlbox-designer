@@ -9,6 +9,8 @@ import {
   Alert,
   Badge,
   Button,
+  ColorInput,
+  ColorSwatch,
   Group,
   Loader,
   NumberInput,
@@ -56,6 +58,9 @@ function TypeList({ kind, title }: { kind: CatalogTypeKind; title: string }) {
   const save = useSaveType(kind);
   const remove = useDeleteType(kind);
   const [editingId, setEditingId] = useState<number | null>(null);
+  // Component types colour the fill of their parts in the platen editor.
+  const withFill = kind === "component-types";
+  const columns = withFill ? 5 : 4;
 
   const fail = (err: unknown) => notifications.show({ color: "red", message: errorMessage(err) });
 
@@ -70,6 +75,7 @@ function TypeList({ kind, title }: { kind: CatalogTypeKind; title: string }) {
             <Table.Tr>
               <Table.Th>Name</Table.Th>
               <Table.Th w={80}>Order</Table.Th>
+              {withFill && <Table.Th w={150}>Fill</Table.Th>}
               <Table.Th w={150}>Status</Table.Th>
               <Table.Th w={130} />
             </Table.Tr>
@@ -78,7 +84,7 @@ function TypeList({ kind, title }: { kind: CatalogTypeKind; title: string }) {
             {types.data.map((t) =>
               editingId === t.id ? (
                 <Table.Tr key={t.id}>
-                  <Table.Td colSpan={4}>
+                  <Table.Td colSpan={columns}>
                     <TypeForm kind={kind} type={t} onDone={() => setEditingId(null)} />
                   </Table.Td>
                 </Table.Tr>
@@ -86,6 +92,17 @@ function TypeList({ kind, title }: { kind: CatalogTypeKind; title: string }) {
                 <Table.Tr key={t.id} c={t.active ? undefined : "dimmed"}>
                   <Table.Td>{t.name}</Table.Td>
                   <Table.Td>{t.sortOrder}</Table.Td>
+                  {withFill && (
+                    <Table.Td>
+                      <FillColor
+                        value={t.fillColor}
+                        disabled={!canEdit}
+                        onChange={(fillColor) =>
+                          save.mutate({ id: t.id, patch: { fillColor } }, { onError: fail })
+                        }
+                      />
+                    </Table.Td>
+                  )}
                   <Table.Td>
                     <Group gap={4}>
                       {canEdit ? (
@@ -150,6 +167,75 @@ function TypeList({ kind, title }: { kind: CatalogTypeKind; title: string }) {
       )}
       {canEdit && editingId === null && <TypeForm kind={kind} />}
     </Stack>
+  );
+}
+
+/** Swatches to start from: light, so captions stay readable on them. */
+const FILL_SWATCHES = [
+  "#a5d8ff",
+  "#b2f2bb",
+  "#ffec99",
+  "#ffc9c9",
+  "#d0bfff",
+  "#ffd8a8",
+  "#99e9f2",
+  "#dee2e6",
+];
+
+/** A component type's fill colour: picked, typed or cleared (empty = the kind default). */
+function FillColor({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: string | null;
+  disabled: boolean;
+  onChange: (fillColor: string | null) => void;
+}) {
+  const [draft, setDraft] = useState(value ?? "");
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    setShown(value);
+    setDraft(value ?? "");
+  }
+  if (disabled) {
+    return value ? (
+      <ColorSwatch color={value} size={18} />
+    ) : (
+      <Text size="xs" c="dimmed">
+        Default
+      </Text>
+    );
+  }
+  const commit = (next: string) => {
+    const color = /^#[0-9a-fA-F]{6}$/.test(next) ? next.toLowerCase() : null;
+    if (next !== "" && color === null) return setDraft(value ?? "");
+    if (color !== value) onChange(color);
+  };
+  return (
+    <ColorInput
+      size="xs"
+      placeholder="Default"
+      format="hex"
+      swatches={FILL_SWATCHES}
+      swatchesPerRow={8}
+      value={draft}
+      onChange={setDraft}
+      onChangeEnd={commit}
+      onBlur={() => commit(draft)}
+      rightSection={
+        value ? (
+          <ActionIcon
+            size="xs"
+            variant="subtle"
+            aria-label="Clear fill"
+            onClick={() => onChange(null)}
+          >
+            ✕
+          </ActionIcon>
+        ) : null
+      }
+    />
   );
 }
 

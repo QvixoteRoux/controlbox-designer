@@ -29,7 +29,7 @@ async function findAll(db: PrismaClient, kind: CatalogTypeKind) {
       orderBy,
       include: { _count: { select: { cabinets: true } } },
     });
-    return rows.map(({ _count, ...t }) => ({ ...t, uses: _count.cabinets }));
+    return rows.map(({ _count, ...t }) => ({ ...t, fillColor: null, uses: _count.cabinets }));
   }
   const rows = await db.componentType.findMany({
     orderBy,
@@ -52,18 +52,26 @@ async function findOne(db: PrismaClient, kind: CatalogTypeKind, id: number) {
   return type;
 }
 
+/** Only component types have a fill colour (their parts in the platen editor). */
+function assertNoColorOnCabinetTypes(kind: CatalogTypeKind, fillColor: string | null | undefined) {
+  if (kind === "cabinet-types" && fillColor !== undefined && fillColor !== null) {
+    throw new HttpError(400, "Only component types have a fill colour");
+  }
+}
+
 /** New types go to the end of the list unless a sort order is given. */
 export async function createType(
   db: PrismaClient,
   kind: CatalogTypeKind,
   input: CreateCatalogTypeInput,
 ) {
+  assertNoColorOnCabinetTypes(kind, input.fillColor);
   const sortOrder = input.sortOrder ?? (await nextSortOrder(db, kind));
   const data = { name: input.name, sortOrder };
   try {
     return kind === "cabinet-types"
-      ? await db.cabinetType.create({ data })
-      : await db.componentType.create({ data });
+      ? { ...(await db.cabinetType.create({ data })), fillColor: null }
+      : await db.componentType.create({ data: { ...data, fillColor: input.fillColor ?? null } });
   } catch (err) {
     if (isUniqueViolation(err)) throw nameTaken(kind, input.name);
     throw err;
@@ -85,9 +93,11 @@ export async function updateType(
   patch: UpdateCatalogTypeInput,
 ) {
   await findOne(db, kind, id);
+  assertNoColorOnCabinetTypes(kind, patch.fillColor);
+  const { fillColor: _cabinetTypesHaveNone, ...common } = patch;
   try {
     return kind === "cabinet-types"
-      ? await db.cabinetType.update({ where: { id }, data: patch })
+      ? { ...(await db.cabinetType.update({ where: { id }, data: common })), fillColor: null }
       : await db.componentType.update({ where: { id }, data: patch });
   } catch (err) {
     if (isUniqueViolation(err)) throw nameTaken(kind, patch.name);

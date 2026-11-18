@@ -284,6 +284,9 @@ model ComponentType {
   sortOrder Int     @default(0) @map("sort_order")
   /// Inactive types are hidden from new components; existing ones keep theirs.
   active    Boolean @default(true)
+  /// Fill colour of its parts in the platen editor ("#rrggbb"), or NULL for the kind's default.
+  /// The outline always comes from the kind. Check component_types_fill_color.
+  fillColor String? @map("fill_color") @db.VarChar(7)
 
   components Component[]
 

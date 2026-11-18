@@ -88,6 +88,7 @@ Two lookup lists managed on the **Types** page (`/api/types/cabinet-types`, `/ap
 
 - Name unique, sort order (new ones go last), `active`.
 - A type in use can't be deleted (409): deactivate it. Inactive types are hidden from new choices; rows that already have one keep it.
+- **Fill colour** (component types only, owner 2026-11-18): optional `fill_color` "#rrggbb" (lower case, check `component_types_fill_color`). In the platen editor the **kind sets the outline and the type sets the fill**; no colour = a light tint of the kind colour. Terminal block housing colours, ground green/yellow and warnings still win. Captions switch to dark or white text for contrast (`textOn()`). The colour is frozen into release snapshots (`fillColor`), so released drawings keep it. Cabinet types have none (the API refuses one).
 
 ## Cable glands (`cable_glands`)
 

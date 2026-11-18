@@ -109,6 +109,16 @@ ALTER TABLE components
   ADD CONSTRAINT components_expandable_kind
   CHECK (NOT expandable OR kind IN ('STANDARD', 'SAFETY', 'FUSE'));
 
+-- Component types: the editor fill colour is "#rrggbb" (lower case). Added in migration
+-- component_type_fill_color.
+ALTER TABLE component_types
+  ADD CONSTRAINT component_types_fill_color
+  CHECK (fill_color IS NULL OR fill_color ~ '^#[0-9a-f]{6}
+--   * released revisions are read-only
+--   * the last active ADMIN can't be demoted or deactivated
+--   * placement.rail_id points at a RAIL placement on the same platen
+);
+
 -- Not enforced here (API does it, see guidelines):
 --   * released revisions are read-only
 --   * the last active ADMIN can't be demoted or deactivated

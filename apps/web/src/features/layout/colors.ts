@@ -41,3 +41,13 @@ export function kindColors(theme: MantineTheme, dark: boolean) {
     background: dark ? c.dark[7] : c.gray[2],
   };
 }
+
+/** Dark or white text, whichever reads better on a "#rrggbb" fill. */
+export function textOn(fill: string) {
+  const channel = (i: number) => {
+    const c = parseInt(fill.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  return luminance > 0.18 ? "#222" : "#fff"; // the WCAG contrast crossover
+}

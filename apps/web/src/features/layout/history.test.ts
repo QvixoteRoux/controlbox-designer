@@ -17,6 +17,7 @@ const part = (kind: Placement["part"]["kind"], extra: Partial<Placement["part"]>
   railEdgeOffset: kind === "RAIL" ? null : 200,
   snappable: false,
   expandable: false,
+  fillColor: null,
   attributes: kind === "RAIL" ? { stockLength: 20000 } : {},
   active: true,
   ...extra,

@@ -20,6 +20,8 @@ export const ComponentSnapshot = z.object({
   railEdgeOffset: NonNegativeUnits.nullable(),
   snappable: z.boolean(),
   expandable: z.boolean(),
+  /** Fill colour from the part's component type ("#rrggbb"), or null for the kind default. */
+  fillColor: z.string().nullable(),
   attributes: z.record(z.string(), z.json()),
   imagePath: z.string().nullable(),
 });

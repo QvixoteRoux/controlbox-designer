@@ -61,7 +61,9 @@ export function createInitialRevision(db: Db, machineId: number, userId: number)
 
 // ── Release ──
 
-const componentSnapshot = (c: Component): ComponentSnapshot => ({
+const componentSnapshot = (
+  c: Component & { type: { fillColor: string | null } | null },
+): ComponentSnapshot => ({
   componentId: c.id,
   kind: c.kind,
   manufacturer: c.manufacturer,
@@ -75,6 +77,7 @@ const componentSnapshot = (c: Component): ComponentSnapshot => ({
   railEdgeOffset: c.railEdgeOffset,
   snappable: c.snappable,
   expandable: c.expandable,
+  fillColor: c.type?.fillColor ?? null,
   attributes: c.attributes as ComponentSnapshot["attributes"],
   imagePath: c.imagePath,
 });
@@ -110,7 +113,7 @@ export function releaseRevision(
 
     const placements = await tx.placement.findMany({
       where: { platen: { cabinet: { revisionId: revision.id } } },
-      include: { component: true },
+      include: { component: { include: { type: true } } },
     });
     for (const p of placements) {
       const snapshot: PlacementSnapshot = { component: componentSnapshot(p.component) };
@@ -122,7 +125,7 @@ export function releaseRevision(
         cabinet: { revisionId: revision.id },
         OR: [{ glandId: { not: null } }, { componentId: { not: null } }],
       },
-      include: { gland: true, component: true },
+      include: { gland: true, component: { include: { type: true } } },
     });
     for (const o of openings) {
       const snapshot: OpeningSnapshot = {

@@ -111,6 +111,30 @@ describe.each(["cabinet-types", "component-types"] as const)("/api/types/%s", (k
   });
 });
 
+describe("fill colours", () => {
+  it("sets, normalises and clears a component type's fill colour", async () => {
+    const url = "/api/types/component-types";
+    const created = CatalogType.parse(
+      (await call(catalog, "POST", url, { name: "Relays", fillColor: "#A5D8FF" })).json(),
+    );
+    expect(created.fillColor).toBe("#a5d8ff");
+
+    const cleared = await call(catalog, "PATCH", `${url}/${created.id}`, { fillColor: null });
+    expect(CatalogType.parse(cleared.json()).fillColor).toBeNull();
+
+    const bad = await call(catalog, "PATCH", `${url}/${created.id}`, { fillColor: "blue" });
+    expect(bad.statusCode).toBe(400);
+  });
+
+  it("gives cabinet types no fill colour", async () => {
+    const url = "/api/types/cabinet-types";
+    const res = await call(catalog, "POST", url, { name: "Control", fillColor: "#ff0000" });
+    expect(res.statusCode).toBe(400);
+    const ok = CatalogType.parse((await call(catalog, "POST", url, { name: "Control" })).json());
+    expect(ok.fillColor).toBeNull();
+  });
+});
+
 it("rejects an unknown type list", async () => {
   expect((await call(catalog, "GET", "/api/types/colours")).statusCode).toBe(400);
 });

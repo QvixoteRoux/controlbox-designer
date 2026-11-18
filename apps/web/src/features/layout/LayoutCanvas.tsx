@@ -24,7 +24,7 @@ import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useRef, useState, type DragEvent } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
-import { kindColors } from "./colors";
+import { kindColors, textOn } from "./colors";
 import { followMoves, movesToChanges, slideWithChain, withMoves, type MovePatch } from "./moves";
 
 /** MIME type of a catalog part dragged from the part list. */
@@ -442,7 +442,9 @@ function PlacedShape({
     ? { y: across * 0.22 - fontSize / 2, height: fontSize }
     : { y: 0, height: across };
   const showText = fontSize >= 6 * px;
-  const textFill = terminal?.text ?? colors.text;
+  // Fill: the type's colour when it has one (the kind keeps the outline), else a tint of the kind.
+  const typeFill = warn ? null : p.part.fillColor;
+  const textFill = terminal?.text ?? (typeFill ? textOn(typeFill) : colors.text);
   // The far end of a rail or gutter: drag it to cut the length.
   const lengthHandle = showLengthHandle && draggable && isProfile(p.part.kind) && p.length !== null;
   const handle = 10 * px;
@@ -492,7 +494,11 @@ function PlacedShape({
         ) : terminal ? (
           <Rect width={box.width} height={box.height} fill={terminal.fill} />
         ) : (
-          <Rect width={box.width} height={box.height} fill={`${warn ? colors.warn : base}33`} />
+          <Rect
+            width={box.width}
+            height={box.height}
+            fill={typeFill ? `${typeFill}cc` : `${warn ? colors.warn : base}33`}
+          />
         )}
         {isStrip(p.part) && (
           <StripDetails placement={p} vertical={vertical} px={px} colors={colors} />

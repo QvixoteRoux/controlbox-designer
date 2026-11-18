@@ -93,6 +93,19 @@ describe("releaseRevision", () => {
     const onRail = await db.placement.findUniqueOrThrow({ where: { id: c.onRail.id } });
     expect(PlacementSnapshot.parse(onRail.snapshot).component.width).toBe(450);
   });
+
+  it("freezes the type's fill colour too", async () => {
+    const r = await firstRev();
+    const c = await addCabinetContent(r.id);
+    const type = await db.componentType.create({ data: { name: "Relays", fillColor: "#a5d8ff" } });
+    await db.component.update({ where: { id: c.contactor.id }, data: { typeId: type.id } });
+
+    await releaseRevision(db, machineId, 1, userId, "first issue");
+    await db.componentType.update({ where: { id: type.id }, data: { fillColor: "#ffc9c9" } });
+
+    const onRail = await db.placement.findUniqueOrThrow({ where: { id: c.onRail.id } });
+    expect(PlacementSnapshot.parse(onRail.snapshot).component.fillColor).toBe("#a5d8ff");
+  });
 });
 
 describe("createNextRevision", () => {
