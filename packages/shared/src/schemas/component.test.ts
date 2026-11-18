@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUILT_IN_RAIL,
   ComponentInput,
   componentColumns,
   DEFAULT_STOCK_LENGTH,
+  isBuiltIn,
   RAIL_WIDTH,
   stockLength,
   terminalLevels,
@@ -32,7 +34,7 @@ describe("ComponentInput", () => {
       parse({ kind: "GROUND_TERMINAL", ...identity, ...box, railEdgeOffset: 200 }).success,
     ).toBe(true);
     expect(parse({ kind: "GUTTER", ...identity, width: 600 }).success).toBe(true);
-    expect(parse({ kind: "RAIL", ...identity, depth: 75 }).success).toBe(true);
+    expect(parse({ kind: "RAIL", code: "R1" }).success).toBe(true);
   });
 
   it("allows terminal blocks of 1 to 4 levels", () => {
@@ -83,9 +85,9 @@ describe("ComponentInput", () => {
 
   it("turns empty optional text into null", () => {
     const r = ComponentInput.parse({
-      kind: "RAIL",
+      kind: "STANDARD",
       ...identity,
-      depth: 75,
+      ...box,
       code: " ",
       description: "",
     });
@@ -94,16 +96,33 @@ describe("ComponentInput", () => {
 });
 
 describe("componentColumns", () => {
-  it("fixes a rail at 35 mm wide, height 0, 2000 mm stock", () => {
-    const cols = componentColumns(ComponentInput.parse({ kind: "RAIL", ...identity, depth: 75 }));
+  it("fixes the built-in rail: TS35 × 7.5, 2000 mm stock, only type/code/description editable", () => {
+    const cols = componentColumns(
+      ComponentInput.parse({
+        kind: "RAIL",
+        code: "DIN",
+        description: "My rail",
+        // Ignored: the rail's identity and sizes are fixed.
+        manufacturer: "Acme",
+        depth: 150,
+        active: false,
+      }),
+    );
     expect(cols).toMatchObject({
+      manufacturer: BUILT_IN_RAIL.manufacturer,
+      partNumber: BUILT_IN_RAIL.partNumber,
+      code: "DIN",
+      description: "My rail",
       width: RAIL_WIDTH,
       height: 0,
       depth: 75,
+      active: true,
       railMount: false,
       railEdgeOffset: null,
       attributes: { stockLength: DEFAULT_STOCK_LENGTH },
     });
+    expect(isBuiltIn({ kind: "RAIL" })).toBe(true);
+    expect(isBuiltIn({ kind: "GUTTER" })).toBe(false);
   });
 
   it("keeps a gutter's height for 3D only, 0 when not given", () => {

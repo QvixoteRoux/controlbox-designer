@@ -15,10 +15,12 @@ WITH expected(name, kind) AS (
     ('components_phases',              'check'),
     ('components_rail_offset',         'check'),
     ('components_profile_shape',       'check'),
+    ('components_builtin_rail',        'check'),
     ('placements_rotation',            'check'),
     ('cabinet_openings_shape',         'check'),
     ('machine_revisions_one_working',  'index'),
-    ('users_username_lower_key',       'index')
+    ('users_username_lower_key',       'index'),
+    ('components_one_rail',            'index')
 )
 SELECT e.name,
        e.kind,

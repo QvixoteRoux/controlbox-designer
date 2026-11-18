@@ -1,4 +1,4 @@
-import type { CreateUserInput } from "@cabinet-planner/shared";
+import { BUILT_IN_RAIL, componentColumns, type CreateUserInput } from "@cabinet-planner/shared";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -30,12 +30,26 @@ export function buildTestApp(overrides: Partial<AppDeps> = {}) {
   });
 }
 
-/** Empty every table that holds test data (CASCADE reaches projects, sessions, cabinets…). */
+/**
+ * Empty every table that holds test data (CASCADE reaches projects, sessions, cabinets…), then
+ * put back the built-in DIN rail that migration builtin_din_rail adds to every database.
+ */
 export async function resetDb() {
   await db.$executeRaw`
     TRUNCATE TABLE users, cabinet_types, component_types, components, cable_glands
     RESTART IDENTITY CASCADE`;
+  await db.component.create({
+    data: componentColumns({
+      kind: "RAIL",
+      typeId: null,
+      code: null,
+      description: BUILT_IN_RAIL.description,
+    }),
+  });
 }
+
+/** The built-in DIN rail. */
+export const builtInRail = () => db.component.findFirstOrThrow({ where: { kind: "RAIL" } });
 
 export const PASSWORD = "correct-horse";
 

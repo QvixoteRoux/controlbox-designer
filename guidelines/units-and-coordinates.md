@@ -24,7 +24,7 @@ All lengths and positions are **integers in 0.1 mm** in the DB, the API and the 
 - Origin: the **platen's top-left corner**, as seen from the front with the cabinet upright.
 - +x points right and +y points down. This matches the canvas, so no conversion is needed.
 - `placement.x / y` is the **top-left corner of the component's bounding box after rotation**.
-- Rotation is 0 / 90 / 180 / 270 clockwise. A 90° or 270° rotation swaps width and height for the bounding box.
+- Rotation is 0° or 90° clockwise. 90° swaps width and height for the bounding box. There is no 180° or 270°: parts are drawn as outlines, so they would look the same as 0° and 90°.
 - Editor scale: at zoom 1, 1 canvas px = 1 mm (that is, 10 units).
 
 ## Cabinet faces

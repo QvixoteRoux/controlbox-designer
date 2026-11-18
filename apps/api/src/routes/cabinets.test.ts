@@ -7,7 +7,7 @@ import {
   RevisionDetail,
 } from "@cabinet-planner/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { addUser, buildTestApp, db, login, resetDb } from "../../test/helpers.js";
+import { addUser, buildTestApp, builtInRail, db, login, resetDb } from "../../test/helpers.js";
 
 let app: Awaited<ReturnType<typeof buildTestApp>>;
 beforeAll(async () => {
@@ -528,7 +528,7 @@ describe("a component mounted in a round hole", () => {
   it("must be active and fit in a hole", async () => {
     const c = await newCabinet();
     const old = await part("PB-OLD", { active: false });
-    const rail = await part("TS35", { kind: "RAIL", height: 0, width: 350, depth: 75 });
+    const rail = await builtInRail();
 
     expect((await add(c.id, hole(old.id))).statusCode).toBe(400);
     expect((await add(c.id, hole(rail.id))).statusCode).toBe(400);

@@ -59,14 +59,16 @@ One table for every catalog item. The common columns are manufacturer, part numb
 
 `kind` decides which fields the form and API take, and what `attributes` (JSON) holds. Each kind has its own input schema in `packages/shared/src/schemas/component.ts`; `componentColumns()` fills in the columns a kind doesn't use.
 
-| kind            | input                                                  | attributes                          | notes                                                                                                                       |
-| --------------- | ------------------------------------------------------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| STANDARD        | W × H × D, voltage, phases, rail mount + offset, stack | `{}`                                | Most devices. Sizes can be typed in inches (rounded to whole mm).                                                           |
-| FUSE            | same as STANDARD                                       | `{ amperage, poles }`               | Fuse holder and fuse are one item. Inches allowed.                                                                          |
-| TERMINAL_BLOCK  | W × H × D, rail offset (required), stackable           | `{ levels: 1–4 }`                   | Always rail mounted, stackable by default. Width is along the rail. 4 levels is rare.                                       |
-| GROUND_TERMINAL | same as TERMINAL_BLOCK                                 | `{}`                                | Green/yellow PE terminal, **always 1 level**, no colour choice.                                                             |
-| GUTTER          | width, height (optional, 0 = not given)                | `{ stockLength }` (default 2000 mm) | Stored as width = duct width, depth = duct height, height = 0. The width is what matters on the platen; height is for 3D.   |
-| RAIL            | profile height (7.5 or 15 mm)                          | `{ stockLength }` (default 2000 mm) | DIN rail, **always 35 mm wide** (width = 350, DB check `components_profile_shape`), height = 0. Mounting holes are ignored. |
+| kind            | input                                                  | attributes                          | notes                                                                                                                     |
+| --------------- | ------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| STANDARD        | W × H × D, voltage, phases, rail mount + offset, stack | `{}`                                | Most devices. Sizes can be typed in inches (rounded to whole mm).                                                         |
+| FUSE            | same as STANDARD                                       | `{ amperage, poles }`               | Fuse holder and fuse are one item. Inches allowed.                                                                        |
+| TERMINAL_BLOCK  | W × H × D, rail offset (required), stackable           | `{ levels: 1–4 }`                   | Always rail mounted, stackable by default. Width is along the rail. 4 levels is rare.                                     |
+| GROUND_TERMINAL | same as TERMINAL_BLOCK                                 | `{}`                                | Green/yellow PE terminal, **always 1 level**, no colour choice.                                                           |
+| GUTTER          | width, height (optional, 0 = not given)                | `{ stockLength }` (default 2000 mm) | Stored as width = duct width, depth = duct height, height = 0. The width is what matters on the platen; height is for 3D. |
+| RAIL            | type, code, description only                           | `{ stockLength: 2000 mm }`          | **Built in, exactly one** (see below). TS35 × 7.5: width = 350, depth = 75, height = 0. Mounting holes are ignored.       |
+
+**The DIN rail is built in.** It's a standard size across manufacturers, so the catalog holds exactly one rail: Generic TS35x7.5 (35 × 7.5 mm, 2000 mm stock; `BUILT_IN_RAIL` in `packages/shared`). Migration `builtin_din_rail` adds it to every database. The API refuses to add another rail, turn a part into a rail or the rail into something else, and refuses to delete it. It is always active, and its sizes can't change. The DB backs this up with the unique index `components_one_rail` and the check `components_builtin_rail`. Only its type, code, description and picture can be edited.
 
 Rails and gutters are cut to fit: the length is set on each placement. A placed length over the stock length gets a warning in the editor, not a block.
 
@@ -96,6 +98,10 @@ Only `size` (text, e.g. "M20", unique) and `hole_diameter`, plus an optional pic
 ## Placements
 
 Each placement stores x, y, rotation, an optional length (gutter and rail only), `locked`, an optional `rail_id` (the rail it's snapped to), a tag (-K1…), z-order, and a `snapshot` that is filled on release.
+
+- API: `GET …/cabinets/:id/layout` (platen + placements, drawn from the snapshot once released), `POST …/placements`, `PATCH …/placements/:id`, `DELETE …/placements/:id`. Writes need `projects` and a WORKING revision, and the cabinet's platen switched on.
+- A new placement goes on top (highest z-order). A rail or gutter without a length gets its stock length; other kinds can't have a length.
+- A **locked** placement only accepts unlocking (409 otherwise, delete included).
 
 **Planned with the platen editor** (owner request, 2026-11-17; columns added then): terminal strips. See `guidelines/platen-editor.md`.
 

@@ -8,6 +8,7 @@ import { RevisionPage } from "./features/cabinets/RevisionPage";
 import { ComponentsPage } from "./features/catalog/ComponentsPage";
 import { TypesPage } from "./features/catalog/TypesPage";
 import { GlandsPage } from "./features/glands/GlandsPage";
+import { LayoutPage } from "./features/layout/LayoutPage";
 import { MachinePage } from "./features/projects/MachinePage";
 import { ProjectPage } from "./features/projects/ProjectPage";
 import { ProjectsPage } from "./features/projects/ProjectsPage";
@@ -31,6 +32,10 @@ export const router = createBrowserRouter([
           {
             path: "projects/:projectId/machines/:machineId/revisions/:rev/cabinets/:cabinetId",
             element: <CabinetPage />,
+          },
+          {
+            path: "projects/:projectId/machines/:machineId/revisions/:rev/cabinets/:cabinetId/layout",
+            element: <LayoutPage />,
           },
           { path: "components", element: <ComponentsPage /> },
           { path: "cable-glands", element: <GlandsPage /> },

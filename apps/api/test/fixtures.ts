@@ -1,4 +1,4 @@
-import { db } from "./helpers.js";
+import { builtInRail, db } from "./helpers.js";
 
 // Revision content inserted straight into the DB, for testing release and copy before the
 // cabinet and editor features exist.
@@ -6,17 +6,7 @@ import { db } from "./helpers.js";
 /** A cabinet with a platen holding a DIN rail and a contactor snapped to it, plus three openings. */
 export async function addCabinetContent(revisionId: number) {
   const type = await db.cabinetType.create({ data: { name: `Control-${revisionId}` } });
-  const rail = await db.component.create({
-    data: {
-      kind: "RAIL",
-      manufacturer: "Acme",
-      partNumber: `RAIL-${revisionId}`,
-      height: 0,
-      width: 350,
-      depth: 75,
-      attributes: { stockLength: 20000 },
-    },
-  });
+  const rail = await builtInRail();
   const contactor = await db.component.create({
     data: {
       manufacturer: "Acme",

@@ -71,10 +71,18 @@ ALTER TABLE components
    AND (kind <> 'RAIL' OR width = 350)
   );
 
--- Placements: right-angle rotations only.
+-- Components: exactly one DIN rail, the built-in TS35 x 7.5 (BUILT_IN_RAIL in
+-- packages/shared). Added in migration builtin_din_rail, which also inserts the row.
+CREATE UNIQUE INDEX components_one_rail ON components (kind) WHERE kind = 'RAIL';
+ALTER TABLE components
+  ADD CONSTRAINT components_builtin_rail
+  CHECK (kind <> 'RAIL' OR (width = 350 AND height = 0 AND depth = 75 AND active));
+
+-- Placements: 0 or 90 degrees only (180 / 270 look the same as outlines).
+-- Narrowed from 0/90/180/270 in migration rotation_0_90.
 ALTER TABLE placements
   ADD CONSTRAINT placements_rotation
-  CHECK (rotation IN (0, 90, 180, 270));
+  CHECK (rotation IN (0, 90));
 
 -- Openings: each kind carries the fields it needs.
 ALTER TABLE cabinet_openings

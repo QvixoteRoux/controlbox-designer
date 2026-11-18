@@ -1,9 +1,11 @@
-import { componentColumns, type ComponentInput } from "@cabinet-planner/shared";
+import { componentColumns, isBuiltIn, type ComponentInput } from "@cabinet-planner/shared";
 import { HttpError } from "../errors.js";
 import { Prisma, type PrismaClient } from "../generated/prisma/client.js";
 
 // The component catalog (guidelines/data-model.md). One table; `kind` decides which fields
 // apply. Rows in use (placed on a platen or mounted in a hole) are never hard-deleted.
+// The DIN rail is built in (BUILT_IN_RAIL, added by a migration): it can't be added, deleted
+// or turned into another kind, and no other part can become a rail.
 
 const isUniqueViolation = (err: unknown) =>
   err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
@@ -48,8 +50,10 @@ async function assertTypeUsable(
   if (!type?.active) throw new HttpError(400, "Unknown or inactive component type");
 }
 
+type Columns = ReturnType<typeof componentColumns>;
+
 /** Clear 409s for the two unique keys: manufacturer + part number, and code. */
-async function assertUnique(db: PrismaClient, input: ComponentInput, id?: number) {
+async function assertUnique(db: PrismaClient, input: Columns, id?: number) {
   const notThis = id === undefined ? {} : { id: { not: id } };
   const samePart = await db.component.findFirst({
     where: { manufacturer: input.manufacturer, partNumber: input.partNumber, ...notThis },
@@ -69,12 +73,16 @@ async function assertUnique(db: PrismaClient, input: ComponentInput, id?: number
 }
 
 const conflict = () => new HttpError(409, "Another component already has this part number or code");
+const railIsBuiltIn = () =>
+  new HttpError(409, "The DIN rail is built in: it's already in the catalog and can't be added");
 
 export async function createComponent(db: PrismaClient, input: ComponentInput) {
+  if (isBuiltIn(input)) throw railIsBuiltIn();
+  const data = componentColumns(input);
   await assertTypeUsable(db, input.typeId, null);
-  await assertUnique(db, input);
+  await assertUnique(db, data);
   try {
-    const created = await db.component.create({ data: componentColumns(input) });
+    const created = await db.component.create({ data });
     return getComponent(db, created.id);
   } catch (err) {
     if (isUniqueViolation(err)) throw conflict();
@@ -88,13 +96,18 @@ export async function createComponent(db: PrismaClient, input: ComponentInput) {
  */
 export async function updateComponent(db: PrismaClient, id: number, input: ComponentInput) {
   const current = await findComponent(db, id);
+  if (isBuiltIn(current) && input.kind !== current.kind) {
+    throw new HttpError(409, "The DIN rail is built in, so its kind can't change");
+  }
+  if (isBuiltIn(input) && !isBuiltIn(current)) throw railIsBuiltIn();
   if (input.kind !== current.kind && uses(current) > 0) {
     throw new HttpError(409, "This component is in use, so its kind can't change");
   }
+  const data = componentColumns(input);
   await assertTypeUsable(db, input.typeId, current.typeId);
-  await assertUnique(db, input, id);
+  await assertUnique(db, data, id);
   try {
-    await db.component.update({ where: { id }, data: componentColumns(input) });
+    await db.component.update({ where: { id }, data });
   } catch (err) {
     if (isUniqueViolation(err)) throw conflict();
     throw err;
@@ -105,6 +118,8 @@ export async function updateComponent(db: PrismaClient, id: number, input: Compo
 /** Only unused components can be deleted (CLAUDE.md rule 7). */
 export async function deleteComponent(db: PrismaClient, id: number) {
   const component = await findComponent(db, id);
+  if (isBuiltIn(component))
+    throw new HttpError(409, "The DIN rail is built in and can't be deleted");
   const n = uses(component);
   if (n > 0) {
     throw new HttpError(

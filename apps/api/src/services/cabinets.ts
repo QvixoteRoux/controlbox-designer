@@ -28,7 +28,10 @@ const isUniqueViolation = (err: unknown) =>
   err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
 
 /** The revision addressed by the URL, checking it belongs to that machine and project. */
-async function findRevision(db: PrismaClient | Tx, { projectId, machineId, rev }: RevisionRef) {
+export async function findRevision(
+  db: PrismaClient | Tx,
+  { projectId, machineId, rev }: RevisionRef,
+) {
   const revision = await db.machineRevision.findUnique({
     where: { machineId_rev: { machineId, rev } },
     include: {
@@ -47,14 +50,14 @@ async function findRevision(db: PrismaClient | Tx, { projectId, machineId, rev }
   return revision;
 }
 
-const contextOf = (revision: Awaited<ReturnType<typeof findRevision>>) => ({
+export const contextOf = (revision: Awaited<ReturnType<typeof findRevision>>) => ({
   project: revision.machine.project,
   machine: { id: revision.machine.id, name: revision.machine.name },
   revision: { id: revision.id, rev: revision.rev, status: revision.status },
 });
 
 /** 404 unless the cabinet belongs to the revision. */
-async function findCabinet(db: PrismaClient | Tx, revisionId: number, cabinetId: number) {
+export async function findCabinet(db: PrismaClient | Tx, revisionId: number, cabinetId: number) {
   const cabinet = await db.cabinet.findUnique({ where: { id: cabinetId } });
   if (cabinet?.revisionId !== revisionId) throw new HttpError(404, "Cabinet not found");
   return cabinet;

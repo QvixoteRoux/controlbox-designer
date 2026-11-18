@@ -1,6 +1,7 @@
 import {
   can,
   ComponentKind,
+  isBuiltIn,
   stockLength,
   terminalLevels,
   type ComponentListItem,
@@ -188,6 +189,11 @@ export function ComponentsPage() {
                       <Badge variant="dot" color={c.active ? "green" : "gray"}>
                         {c.active ? "Active" : "Inactive"}
                       </Badge>
+                      {isBuiltIn(c) && (
+                        <Badge variant="light" color="gray">
+                          Built-in
+                        </Badge>
+                      )}
                       {c.inUse && (
                         <Badge variant="light" color="blue">
                           In use
@@ -201,17 +207,19 @@ export function ComponentsPage() {
                         <Button size="xs" variant="light" onClick={() => setEditing(c)}>
                           Edit
                         </Button>
-                        <Tooltip label="In use: deactivate it instead" disabled={!c.inUse}>
-                          <Button
-                            size="xs"
-                            variant="subtle"
-                            color="red"
-                            disabled={c.inUse}
-                            onClick={() => deleteComponent(c)}
-                          >
-                            Delete
-                          </Button>
-                        </Tooltip>
+                        {!isBuiltIn(c) && (
+                          <Tooltip label="In use: deactivate it instead" disabled={!c.inUse}>
+                            <Button
+                              size="xs"
+                              variant="subtle"
+                              color="red"
+                              disabled={c.inUse}
+                              onClick={() => deleteComponent(c)}
+                            >
+                              Delete
+                            </Button>
+                          </Tooltip>
+                        )}
                       </Group>
                     )}
                   </Table.Td>

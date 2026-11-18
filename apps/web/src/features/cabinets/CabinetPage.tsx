@@ -46,6 +46,7 @@ import { CabinetFormModal } from "./CabinetFormModal";
 import { FaceView } from "./FaceView";
 import { FACE_LABELS, KIND_LABELS } from "./labels";
 import { OpeningFormModal } from "./OpeningFormModal";
+import { layoutRoute } from "../layout/api";
 import { PlatenModal } from "./PlatenModal";
 
 const title = (s: string) => s[0] + s.slice(1).toLowerCase();
@@ -190,16 +191,16 @@ export function CabinetPage() {
           {c.hasPlaten && c.platen ? (
             <Stack gap="xs">
               <Field label="H × W">{formatDims(c.platen.height, c.platen.width)}</Field>
-              {editable && (
-                <Group>
+              <Group gap="xs">
+                <Button size="xs" component={Link} to={layoutRoute(ref, c.id)}>
+                  {editable ? "Open layout" : "View layout"}
+                </Button>
+                {editable && (
                   <Button size="xs" variant="light" onClick={platenModal.open}>
                     Change size
                   </Button>
-                </Group>
-              )}
-              <Text size="xs" c="dimmed">
-                The layout editor comes with the component catalog.
-              </Text>
+                )}
+              </Group>
             </Stack>
           ) : (
             <Text size="sm" c="dimmed">

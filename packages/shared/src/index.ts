@@ -12,3 +12,5 @@ export * from "./schemas/error.js";
 export * from "./schemas/snapshot.js";
 export * from "./schemas/gland.js";
 export * from "./faces.js";
+export * from "./schemas/placement.js";
+export * from "./layout.js";

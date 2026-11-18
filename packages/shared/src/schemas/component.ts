@@ -9,8 +9,24 @@ import { ComponentKind } from "./enums.js";
 export const RAIL_WIDTH = 350;
 /** Rails and wire ducts come 2000 mm long and are cut to fit. */
 export const DEFAULT_STOCK_LENGTH = 20000;
-/** DIN rail profile heights offered by the form (TS35 × 7.5 and TS35 × 15). */
-export const RAIL_PROFILE_HEIGHTS = [75, 150] as const;
+/**
+ * The one DIN rail in the catalog: TS35 × 7.5 (EN 60715), the same across manufacturers.
+ * A migration adds it to every database; it can't be added again, resized, deactivated or
+ * deleted. Only its type, code, description and picture can be edited.
+ * Keep in step with migration `builtin_din_rail` and `prisma/sql/constraints.sql`.
+ */
+export const BUILT_IN_RAIL = {
+  kind: "RAIL",
+  manufacturer: "Generic",
+  partNumber: "TS35x7.5",
+  description: "DIN rail 35 × 7.5 mm (EN 60715)",
+  height: 0,
+  width: RAIL_WIDTH,
+  depth: 75,
+  stockLength: DEFAULT_STOCK_LENGTH,
+} as const;
+/** Built-in parts (only the DIN rail) can't be added, deleted or resized. */
+export const isBuiltIn = (c: { kind: ComponentKind }) => c.kind === "RAIL";
 /** Terminal blocks have 1 to 4 levels (4 is rare). */
 export const MAX_TERMINAL_LEVELS = 4;
 
@@ -130,12 +146,12 @@ const GutterInput = z.object({
   depth: NonNegativeUnits.default(0),
   attributes: GutterAttributes.default({ stockLength: DEFAULT_STOCK_LENGTH }),
 });
+/** Only for editing the built-in rail (BUILT_IN_RAIL): everything else about it is fixed. */
 const RailInput = z.object({
   kind: z.literal("RAIL"),
-  ...identity,
-  /** Profile height (7.5 or 15 mm), only for 3D views. */
-  depth: PositiveUnits,
-  attributes: RailAttributes.default({ stockLength: DEFAULT_STOCK_LENGTH }),
+  typeId: identity.typeId,
+  code: identity.code,
+  description: identity.description,
 });
 
 /** POST /api/components and PUT /api/components/:id. */
@@ -152,6 +168,22 @@ export type ComponentInputOf<K extends ComponentKind> = Extract<ComponentInput, 
 
 /** Every column of a catalog row, filled in from a kind's input. */
 export function componentColumns(input: ComponentInput) {
+  if (input.kind === "RAIL") {
+    const { stockLength, ...fixed } = BUILT_IN_RAIL;
+    return {
+      ...fixed,
+      typeId: input.typeId,
+      code: input.code,
+      description: input.description,
+      active: true,
+      attributes: { stockLength } as Record<string, number>,
+      inputVoltage: null,
+      phases: null,
+      railMount: false,
+      railEdgeOffset: null,
+      stackable: false,
+    };
+  }
   const base = {
     kind: input.kind,
     typeId: input.typeId,
@@ -194,8 +226,6 @@ export function componentColumns(input: ComponentInput) {
       };
     case "GUTTER":
       return { ...base, height: 0, width: input.width, depth: input.depth };
-    case "RAIL":
-      return { ...base, height: 0, width: RAIL_WIDTH, depth: input.depth };
   }
 }
 

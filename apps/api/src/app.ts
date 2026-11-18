@@ -10,6 +10,7 @@ import { componentsRoutes } from "./routes/components.js";
 import { glandsRoutes } from "./routes/glands.js";
 import { healthRoutes } from "./routes/health.js";
 import { acceptImageBodies, imagesRoutes } from "./routes/images.js";
+import { placementsRoutes } from "./routes/placements.js";
 import { projectsRoutes } from "./routes/projects.js";
 import { usersRoutes } from "./routes/users.js";
 
@@ -33,6 +34,7 @@ export async function buildApp(deps: AppDeps, options: FastifyServerOptions = {}
       await api.register(usersRoutes, { db: deps.db });
       await api.register(projectsRoutes, { db: deps.db });
       await api.register(cabinetsRoutes, { db: deps.db });
+      await api.register(placementsRoutes, { db: deps.db });
       await api.register(glandsRoutes, { db: deps.db, images: deps.images });
       await api.register(componentsRoutes, { db: deps.db, images: deps.images });
       await api.register(catalogTypesRoutes, { db: deps.db });

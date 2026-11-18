@@ -1,12 +1,13 @@
 import {
   ApiErrorBody,
+  BUILT_IN_RAIL,
   ComponentList,
   ComponentListItem,
   DEFAULT_STOCK_LENGTH,
   RAIL_WIDTH,
 } from "@cabinet-planner/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { addUser, buildTestApp, db, login, resetDb } from "../../test/helpers.js";
+import { addUser, buildTestApp, builtInRail, db, login, resetDb } from "../../test/helpers.js";
 
 let app: Awaited<ReturnType<typeof buildTestApp>>;
 beforeAll(async () => {
@@ -56,19 +57,6 @@ async function add(body: object) {
 }
 
 describe("the component catalog", () => {
-  it("creates a rail fixed at 35 mm wide with a 2000 mm stock length", async () => {
-    const rail = await add({ kind: "RAIL", ...identity("TS35"), depth: 75, width: 999 });
-
-    expect(rail).toMatchObject({
-      kind: "RAIL",
-      width: RAIL_WIDTH,
-      height: 0,
-      depth: 75,
-      railMount: false,
-      attributes: { stockLength: DEFAULT_STOCK_LENGTH },
-    });
-  });
-
   it("creates a gutter from its width only", async () => {
     const gutter = await add({ kind: "GUTTER", ...identity("WD-60"), width: 600 });
     expect(gutter).toMatchObject({ width: 600, height: 0, depth: 0 });
@@ -105,6 +93,7 @@ describe("the component catalog", () => {
     expect(res.statusCode).toBe(200);
     expect(ComponentList.parse(res.json())).toEqual([
       expect.objectContaining({ partNumber: "K-9", type: "Contactor", inUse: false }),
+      expect.objectContaining({ kind: "RAIL", partNumber: BUILT_IN_RAIL.partNumber }),
     ]);
   });
 
@@ -153,6 +142,79 @@ describe("the component catalog", () => {
       expect((await call(cookies, "POST", "/api/components", contactor())).statusCode).toBe(403);
       expect((await call(cookies, "DELETE", `/api/components/${c.id}`)).statusCode).toBe(403);
     }
+  });
+});
+
+describe("the built-in DIN rail", () => {
+  it("is in the catalog: TS35 × 7.5, 35 mm wide, 2000 mm stock", async () => {
+    expect(await builtInRail()).toMatchObject({
+      manufacturer: BUILT_IN_RAIL.manufacturer,
+      partNumber: BUILT_IN_RAIL.partNumber,
+      width: RAIL_WIDTH,
+      height: 0,
+      depth: 75,
+      active: true,
+      attributes: { stockLength: DEFAULT_STOCK_LENGTH },
+    });
+  });
+
+  it("can't be added again, and no part can become a rail", async () => {
+    const again = await call(catalog, "POST", "/api/components", { kind: "RAIL" });
+    expect(again.statusCode).toBe(409);
+    expect(ApiErrorBody.parse(again.json()).message).toMatch(/built in/);
+
+    const k = await add(contactor());
+    const toRail = await call(catalog, "PUT", `/api/components/${k.id}`, { kind: "RAIL" });
+    expect(toRail.statusCode).toBe(409);
+  });
+
+  it("keeps its kind, sizes and active flag; only type, code and description change", async () => {
+    const rail = await builtInRail();
+    const url = `/api/components/${rail.id}`;
+
+    const res = await call(catalog, "PUT", url, {
+      kind: "RAIL",
+      code: "DIN-35",
+      description: "Slotted rail",
+      depth: 150,
+      active: false,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(ComponentListItem.parse(res.json())).toMatchObject({
+      code: "DIN-35",
+      description: "Slotted rail",
+      depth: 75,
+      active: true,
+    });
+
+    const toGutter = await call(catalog, "PUT", url, {
+      kind: "GUTTER",
+      ...identity("G"),
+      width: 600,
+    });
+    expect(toGutter.statusCode).toBe(409);
+  });
+
+  it("can't be deleted", async () => {
+    const rail = await builtInRail();
+    const res = await call(catalog, "DELETE", `/api/components/${rail.id}`);
+    expect(res.statusCode).toBe(409);
+    expect(await db.component.count({ where: { kind: "RAIL" } })).toBe(1);
+  });
+
+  it("is the only rail the database accepts", async () => {
+    await expect(
+      db.component.create({
+        data: {
+          kind: "RAIL",
+          manufacturer: "Acme",
+          partNumber: "R2",
+          height: 0,
+          width: 350,
+          depth: 75,
+        },
+      }),
+    ).rejects.toThrow();
   });
 });
 

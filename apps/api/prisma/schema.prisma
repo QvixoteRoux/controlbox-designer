@@ -294,7 +294,8 @@ model Component {
   phases         Int?
   /// Bounding box as mounted on the platen. For GUTTER / RAIL: height = 0,
   /// width = profile width (RAIL: always 350), depth = profile height (GUTTER: 0 = not given);
-  /// the cut length lives on the placement.
+  /// the cut length lives on the placement. There is exactly one RAIL row, the built-in
+  /// TS35 x 7.5 added by migration builtin_din_rail (index components_one_rail).
   height         Int
   width          Int
   depth          Int
@@ -342,7 +343,7 @@ model Placement {
   /// Top-left corner of the (rotated) bounding box, from the platen's top-left. +x right, +y down.
   x           Int
   y           Int
-  /// 0, 90, 180 or 270, clockwise.
+  /// 0 or 90, clockwise (180 / 270 look the same as outlines).
   rotation    Int      @default(0)
   /// GUTTER and RAIL only.
   length      Int?

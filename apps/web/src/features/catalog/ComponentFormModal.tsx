@@ -1,10 +1,10 @@
 import {
+  BUILT_IN_RAIL,
   ComponentInput,
   ComponentKind,
   DEFAULT_STOCK_LENGTH,
+  isBuiltIn,
   MAX_TERMINAL_LEVELS,
-  RAIL_PROFILE_HEIGHTS,
-  RAIL_WIDTH,
   stockLength,
   terminalLevels,
   toMm,
@@ -64,8 +64,6 @@ interface Values {
   railEdgeOffset: Num;
   stackable: boolean;
   attributes: { amperage: Num; poles: Num; levels: string; stockLength: Num };
-  /** DIN rail profile height in 0.1 mm, as a string for the Select. */
-  railProfile: string;
 }
 
 const LENGTH_FIELDS = ["height", "width", "depth", "railEdgeOffset"] as const;
@@ -127,7 +125,13 @@ function toApi(v: Values) {
         attributes: stock,
       };
     case "RAIL":
-      return { ...identity, depth: Number(v.railProfile), attributes: stock };
+      // The built-in rail: only these can change.
+      return {
+        kind: v.kind,
+        typeId: identity.typeId,
+        code: identity.code,
+        description: identity.description,
+      };
   }
 }
 
@@ -160,7 +164,6 @@ function initialValues(c: ComponentListItem | null): Values {
       levels: String(c ? Math.max(terminalLevels(c), 1) : 1),
       stockLength: toMm(stock ?? DEFAULT_STOCK_LENGTH),
     },
-    railProfile: String(c?.kind === "RAIL" ? c.depth : RAIL_PROFILE_HEIGHTS[0]),
   };
 }
 
@@ -203,13 +206,15 @@ function ComponentForm({
   const len = lengthInputProps(unit);
   // Placements and holes depend on the kind, so it's fixed once the part is used.
   const kindLocked = component?.inUse ?? false;
+  // The DIN rail is built in: fixed kind, identity and sizes. No other part can become a rail.
+  const builtIn = component !== null && isBuiltIn(component);
+  const kindOptions = ComponentKind.options
+    .filter((k) => builtIn || !isBuiltIn({ kind: k }))
+    .map((k) => ({ value: k, label: COMPONENT_KIND_LABELS[k] }));
 
   const typeOptions = (types.data ?? [])
     .filter((t) => t.active || String(t.id) === v.typeId)
     .map((t) => ({ value: String(t.id), label: t.active ? t.name : `${t.name} – inactive` }));
-  const profileOptions = [...new Set<number>([...RAIL_PROFILE_HEIGHTS, Number(v.railProfile)])].map(
-    (u) => ({ value: String(u), label: `${toMm(u)} mm` }),
-  );
 
   const switchUnit = (to: LengthUnit) => {
     for (const field of LENGTH_FIELDS) {
@@ -255,10 +260,12 @@ function ComponentForm({
         <SimpleGrid cols={2}>
           <Select
             label="Kind"
-            data={ComponentKind.options.map((k) => ({ value: k, label: COMPONENT_KIND_LABELS[k] }))}
+            data={kindOptions}
             allowDeselect={false}
-            disabled={kindLocked}
-            description={kindLocked ? "In use: the kind can't change" : undefined}
+            disabled={kindLocked || builtIn}
+            description={
+              builtIn ? "Built in" : kindLocked ? "In use: the kind can't change" : undefined
+            }
             {...form.getInputProps("kind")}
           />
           <Select
@@ -270,8 +277,13 @@ function ComponentForm({
             nothingFoundMessage="No types yet: add them under Types"
             {...form.getInputProps("typeId")}
           />
-          <TextInput label="Manufacturer" data-autofocus {...form.getInputProps("manufacturer")} />
-          <TextInput label="Part number" {...form.getInputProps("partNumber")} />
+          <TextInput
+            label="Manufacturer"
+            data-autofocus
+            disabled={builtIn}
+            {...form.getInputProps("manufacturer")}
+          />
+          <TextInput label="Part number" disabled={builtIn} {...form.getInputProps("partNumber")} />
           <TextInput
             label="Code"
             placeholder="Optional internal ID"
@@ -282,27 +294,12 @@ function ComponentForm({
 
         {/* ── Sizes, per kind ── */}
         {kind === "RAIL" && (
-          <>
-            <Text size="sm" c="dimmed">
-              DIN rail is always {toMm(RAIL_WIDTH)} mm wide; the length is cut to fit when it's
-              placed. Mounting holes are ignored.
-            </Text>
-            <SimpleGrid cols={2}>
-              <Select
-                label="Profile height"
-                description="Only for 3D views"
-                data={profileOptions}
-                allowDeselect={false}
-                {...form.getInputProps("railProfile")}
-              />
-              <NumberInput
-                label="Stock length"
-                description="Placed rails longer than this get a warning"
-                {...mmInputProps}
-                {...form.getInputProps("attributes.stockLength")}
-              />
-            </SimpleGrid>
-          </>
+          <Alert color="gray" p="xs">
+            The standard DIN rail, {toMm(BUILT_IN_RAIL.width)} × {toMm(BUILT_IN_RAIL.depth)} mm,{" "}
+            {toMm(BUILT_IN_RAIL.stockLength)} mm stock length: the same across manufacturers. It's
+            built in, so only its type, code, description and picture can change. Each placed rail
+            is cut to length; mounting holes are ignored.
+          </Alert>
         )}
 
         {kind === "GUTTER" && (
@@ -448,7 +445,7 @@ function ComponentForm({
           onRemove={() => setImageChange(component?.imagePath ? "remove" : null)}
         />
 
-        {component && (
+        {component && !builtIn && (
           <Switch
             label="Active"
             description="Inactive parts are hidden when adding to a layout; existing uses stay"

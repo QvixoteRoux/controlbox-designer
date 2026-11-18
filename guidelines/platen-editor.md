@@ -7,6 +7,11 @@
   - Layers from back to front: platen outline and grid → rails and gutters → components → snap guides and selection.
 - **Right:** properties of the selection: X, Y (mm), rotation, length (rails and gutters), tag, locked, and catalog info.
 
+## Rails and gutters
+
+- Drawn **horizontally at 0°** (the default): the length runs along x and the profile width (35 mm for DIN rail) along y. 90° makes them vertical (`footprint()` / `rotatedSize()` in `packages/shared/src/layout.ts`).
+- A new one gets its catalog stock length (2000 mm). Cut it by typing the length or dragging the handle at its far end.
+
 ## Placing and moving
 
 - Drag a component from the list onto the platen to create a placement.
@@ -16,7 +21,7 @@
 
 ## Snapping
 
-The snap tolerance defaults to 5 mm and can be changed in user settings. Alt while dragging turns snapping off.
+No tolerance setting (owner, 2026-11-17): snapping is about parts on a rail sitting **side by side**. A fixed internal tolerance decides when something is "near". Alt while dragging turns snapping off.
 
 1. **Rail snap**, for `rail_mount` components near a RAIL placement:
    - Vertically, the component's top edge moves to `rail.y − rail_edge_offset`, so the rail's top edge lands where the datasheet says.
@@ -25,7 +30,9 @@ The snap tolerance defaults to 5 mm and can be changed in user settings. Alt whi
    - When the rail moves, every component on it moves with it.
 2. **Component snap:** edges align to the nearby edges of other placements (left/right/top/bottom, plus centres).
    - **Stackable** components on the same rail butt up against each other with no gap.
-3. **Grid snap** is optional, 5 mm by default. It applies only when nothing above snapped.
+3. **Grid snap**: 5 mm, switched on or off in the toolbar. It applies only when nothing above snapped.
+
+Built so far: grid snap only (part 1). Rail and component snap come in part 2.
 
 ## Terminal strips (planned, owner request 2026-11-17)
 
