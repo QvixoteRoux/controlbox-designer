@@ -99,6 +99,11 @@ describe("createNextRevision", () => {
   it("deep-copies the released revision into rev + 1, with fresh ids and no snapshots", async () => {
     const r1 = await firstRev();
     const c = await addCabinetContent(r1.id);
+    const strip = { count: 8, color: "RED", groupLabel: "X1", bridgedLevels: [1] } as const;
+    await db.placement.update({
+      where: { id: c.onRail.id },
+      data: { ...strip, bridgedLevels: [...strip.bridgedLevels] },
+    });
     await releaseRevision(db, machineId, 1, userId, "first issue");
 
     const r2 = await createNextRevision(db, machineId, userId);
@@ -125,7 +130,7 @@ describe("createNextRevision", () => {
     const newOnRail = placements.find((p) => p.componentId === c.contactor.id)!;
     // The rail link points at the copied rail, not the original one.
     expect(newOnRail.railId).toBe(newRail.id);
-    expect(newOnRail).toMatchObject({ x: 400, y: 300, tag: "-K1" });
+    expect(newOnRail).toMatchObject({ x: 400, y: 300, tag: "-K1", ...strip });
     expect(newRail.length).toBe(3000);
 
     expect(copy.openings).toHaveLength(3);

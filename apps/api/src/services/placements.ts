@@ -1,7 +1,11 @@
 import {
+  DEFAULT_TERMINAL_COLOR,
+  hasStripOptions,
   isProfile,
+  isStrip,
   PlacementSnapshot,
   stockLength,
+  terminalLevels,
   withPatch,
   type CreatePlacementInput,
   type PlacedGeometry,
@@ -52,6 +56,10 @@ function toPlacement(p: Placement & { component: Component }) {
     railId: p.railId,
     tag: p.tag,
     zIndex: p.zIndex,
+    count: p.count,
+    color: p.color,
+    groupLabel: p.groupLabel,
+    bridgedLevels: p.bridgedLevels,
     part,
   };
 }
@@ -135,6 +143,7 @@ const geometry = (p: Placement & { component: Component }): PlacedGeometry => ({
   rotation: p.rotation as Rotation,
   length: p.length,
   railId: p.railId,
+  count: p.count,
   part: livePart(p.component),
 });
 
@@ -160,6 +169,35 @@ async function carryRailParts(
   }
 }
 
+/**
+ * Terminal strips: a count only for terminal blocks and ground terminals; colour, group label
+ * and bridged levels only for terminal blocks, and only levels the terminal has.
+ */
+function assertStripFits(
+  component: Component,
+  strip: {
+    count?: number;
+    color?: string | null;
+    groupLabel?: string | null;
+    bridgedLevels?: number[];
+  },
+) {
+  if (strip.count !== undefined && strip.count !== 1 && !isStrip(component.kind)) {
+    throw new HttpError(400, "Only terminals can be placed as a strip");
+  }
+  const options =
+    (strip.color !== undefined && strip.color !== null) ||
+    (strip.groupLabel !== undefined && strip.groupLabel !== null) ||
+    (strip.bridgedLevels !== undefined && strip.bridgedLevels.length > 0);
+  if (options && !hasStripOptions(component.kind)) {
+    throw new HttpError(400, "Only terminal blocks have a colour, group label or bridges");
+  }
+  const levels = terminalLevels(component);
+  if (strip.bridgedLevels?.some((l) => l > levels)) {
+    throw new HttpError(400, `This terminal has ${levels} level${levels === 1 ? "" : "s"}`);
+  }
+}
+
 /** Only rails and gutters have a length. */
 function assertLengthFits(component: Component, length: number | null | undefined) {
   if (length != null && !isProfile(component.kind)) {
@@ -179,6 +217,7 @@ export async function createPlacement(
     const component = await tx.component.findUnique({ where: { id: input.componentId } });
     if (!component?.active) throw new HttpError(400, "Unknown or inactive component");
     assertLengthFits(component, input.length);
+    assertStripFits(component, input);
     if (input.railId !== null) {
       await assertRailFits(tx, platen.id, component, input.railId, input.rotation);
     }
@@ -198,6 +237,10 @@ export async function createPlacement(
         length: isProfile(component.kind) ? (input.length ?? stockLength(component)) : null,
         railId: input.railId,
         tag: input.tag,
+        count: input.count,
+        color: hasStripOptions(component.kind) ? (input.color ?? DEFAULT_TERMINAL_COLOR) : null,
+        groupLabel: input.groupLabel,
+        bridgedLevels: input.bridgedLevels,
         zIndex: (top._max.zIndex ?? -1) + 1,
       },
       include: { component: true },
@@ -226,6 +269,7 @@ export async function updatePlacement(
       throw new HttpError(409, "This part is locked. Unlock it first.");
     }
     assertLengthFits(current.component, patch.length);
+    assertStripFits(current.component, patch);
     const railId = patch.railId === undefined ? current.railId : patch.railId;
     if (railId !== null && (patch.railId !== undefined || patch.rotation !== undefined)) {
       await assertRailFits(

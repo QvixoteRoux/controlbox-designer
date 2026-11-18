@@ -104,7 +104,7 @@ Each placement stores x, y, rotation, an optional length (gutter and rail only),
 - A **locked** placement only accepts unlocking (409 otherwise, delete included).
 - `rail_id` (create and patch): a RAIL placement on the same platen, only for rail-mounted parts, and the part's rotation must match the rail's (400 otherwise). Moving, turning or resizing a rail updates the parts on it in the same transaction (`withPatch()` in `packages/shared/src/layout.ts`). Deleting a rail sets its parts' `rail_id` to NULL (FK `ON DELETE SET NULL`).
 
-**Planned with the platen editor** (owner request, 2026-11-17; columns added then): terminal strips. See `guidelines/platen-editor.md`.
+- **Terminal strips** (migration `terminal_strips`): `count` (1–200, default 1), `color` (enum `TerminalColor`, NULL for other kinds, LIGHT_GREY by default for terminal blocks), `group_label`, `bridged_levels` (int[] of 1–4). DB check `placements_strip`. The API allows a count > 1 only for TERMINAL_BLOCK / GROUND_TERMINAL, the other three only for TERMINAL_BLOCK, and bridged levels only up to the terminal's level count (400 otherwise). A new revision copies them. See `guidelines/platen-editor.md`.
 
 ## Confirmed decisions
 

@@ -1,6 +1,7 @@
 import {
   alongRail,
   isProfile,
+  lengthAlongRail,
   placementBox,
   positionOnRail,
   railFrame,
@@ -66,12 +67,12 @@ function snapToRail(
   rest: PlacedGeometry[],
   { tolerance, grid }: SnapOptions,
 ): SnapResult | null {
-  const len = moving.part.width; // along the rail
+  const len = lengthAlongRail(moving);
   let best: { rail: PlacedGeometry; along: number; distance: number } | null = null;
 
   for (const rail of rest.filter((o) => o.part.kind === "RAIL")) {
     const frame = railFrame(rail);
-    const size = rotatedSize(moving.part, null, rail.rotation);
+    const size = rotatedSize(moving.part, null, rail.rotation, moving.count);
     const lead = (frame.vertical ? centre.y : centre.x) - len / 2 - frame.start;
     if (lead + len < -tolerance || lead > frame.length + tolerance) continue; // past the ends
 
@@ -95,7 +96,7 @@ function snapToRail(
     let gap = tolerance;
     for (const s of rest.filter((o) => o.railId === rail.id && o.part.stackable)) {
       const start = alongRail(rail, s);
-      const end = start + s.part.width;
+      const end = start + lengthAlongRail(s);
       for (const candidate of [end, start - len]) {
         const d = Math.abs(along - candidate);
         if (d <= gap) {
@@ -120,7 +121,7 @@ function align(
   rest: PlacedGeometry[],
   { tolerance, grid, platen }: SnapOptions,
 ): SnapResult {
-  const size = rotatedSize(moving.part, moving.length, moving.rotation);
+  const size = rotatedSize(moving.part, moving.length, moving.rotation, moving.count);
   const boxes = rest.map(placementBox);
 
   const axis = (start: number, extent: number, targets: number[], axisName: "x" | "y") => {
@@ -159,7 +160,7 @@ function align(
 
 /** Moving without snapping (Alt held): exactly where the pointer puts it, off any rail. */
 export function freeMove(moving: PlacedGeometry, centre: { x: number; y: number }): SnapResult {
-  const size = rotatedSize(moving.part, moving.length, moving.rotation);
+  const size = rotatedSize(moving.part, moving.length, moving.rotation, moving.count);
   return {
     x: Math.round(centre.x - size.width / 2),
     y: Math.round(centre.y - size.height / 2),

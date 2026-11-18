@@ -1,7 +1,13 @@
 import {
+  DEFAULT_TERMINAL_COLOR,
+  hasStripOptions,
   hasWarning,
   isProfile,
+  isStrip,
+  lengthAlongRail,
+  MAX_STRIP_COUNT,
   rotateInPlace,
+  TerminalColor,
   ROTATIONS,
   stockLength,
   terminalLevels,
@@ -16,6 +22,9 @@ import {
   Alert,
   Badge,
   Button,
+  Checkbox,
+  CheckIcon,
+  ColorSwatch,
   Divider,
   Group,
   List,
@@ -26,13 +35,16 @@ import {
   Switch,
   Text,
   TextInput,
+  Tooltip,
 } from "@mantine/core";
 import { useState } from "react";
 import { formatDims, formatMm } from "../../lib/format";
-import { COMPONENT_KIND_LABELS } from "../catalog/labels";
+import { COMPONENT_KIND_LABELS, TERMINAL_COLOR_LABELS } from "../catalog/labels";
+import type { kindColors } from "./colors";
 
 interface Props {
   placement: Placement;
+  colors: ReturnType<typeof kindColors>;
   warnings: LayoutWarnings | undefined;
   /** Tags or part numbers of other placements, for the overlap list. */
   nameOf: (id: number) => string;
@@ -47,6 +59,7 @@ interface Props {
 /** Selected placement: position, rotation, length, tag, lock, and its catalog data. */
 export function PropertiesPanel({
   placement: p,
+  colors,
   warnings,
   nameOf,
   editable,
@@ -102,6 +115,16 @@ export function PropertiesPanel({
         disabled={!canEdit}
         onCommit={(tag) => onChange({ tag })}
       />
+
+      {isStrip(p.part.kind) && (
+        <StripFields
+          placement={p}
+          colors={colors}
+          levels={levels}
+          disabled={!canEdit}
+          onChange={onChange}
+        />
+      )}
 
       <SimpleGrid cols={2} spacing="xs">
         <MmField label="X" value={p.x} disabled={!canEdit} onCommit={(x) => onMoveTo({ x })} />
@@ -226,6 +249,121 @@ function MmField({
       decimalScale={1}
       suffix=" mm"
       min={min}
+      value={draft}
+      disabled={disabled}
+      onChange={setDraft}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && commit()}
+    />
+  );
+}
+
+/** Terminal strip: count, and for terminal blocks the group label, colour and bridges. */
+function StripFields({
+  placement: p,
+  colors,
+  levels,
+  disabled,
+  onChange,
+}: {
+  placement: Placement;
+  colors: ReturnType<typeof kindColors>;
+  levels: number;
+  disabled: boolean;
+  onChange: (patch: UpdatePlacementInput) => void;
+}) {
+  const color = p.color ?? DEFAULT_TERMINAL_COLOR;
+  return (
+    <Stack gap="xs">
+      <Divider label="Terminal strip" labelPosition="left" />
+      <CountField value={p.count} disabled={disabled} onCommit={(count) => onChange({ count })} />
+      <Text size="xs" c="dimmed" mt={-6}>
+        {formatMm(lengthAlongRail(p))} along the rail. It grows from its start end.
+      </Text>
+      {hasStripOptions(p.part.kind) && (
+        <>
+          <TextField
+            label="Group label"
+            placeholder="X1"
+            value={p.groupLabel ?? ""}
+            disabled={disabled}
+            onCommit={(groupLabel) => onChange({ groupLabel })}
+          />
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              Colour
+            </Text>
+            <Group gap={6}>
+              {TerminalColor.options.map((c) => (
+                <Tooltip key={c} label={TERMINAL_COLOR_LABELS[c]}>
+                  <ColorSwatch
+                    component="button"
+                    type="button"
+                    aria-label={TERMINAL_COLOR_LABELS[c]}
+                    color={colors.terminal[c].fill}
+                    size={22}
+                    disabled={disabled}
+                    style={{ cursor: disabled ? "default" : "pointer" }}
+                    onClick={() => c !== color && onChange({ color: c })}
+                  >
+                    {c === color && <CheckIcon size={10} color={colors.terminal[c].text} />}
+                  </ColorSwatch>
+                </Tooltip>
+              ))}
+            </Group>
+          </div>
+          <Checkbox.Group
+            label="Bridged levels"
+            description="A bridge joins every terminal of the strip on that level"
+            value={p.bridgedLevels.map(String)}
+            onChange={(v) => onChange({ bridgedLevels: v.map(Number) })}
+          >
+            <Group gap="sm" mt={4}>
+              {Array.from({ length: levels }, (_, i) => (
+                <Checkbox
+                  key={i}
+                  size="xs"
+                  value={String(i + 1)}
+                  label={`Level ${i + 1}`}
+                  disabled={disabled}
+                />
+              ))}
+            </Group>
+          </Checkbox.Group>
+        </>
+      )}
+    </Stack>
+  );
+}
+
+/** Number of terminals; saves on blur or Enter. */
+function CountField({
+  value,
+  disabled,
+  onCommit,
+}: {
+  value: number;
+  disabled: boolean;
+  onCommit: (count: number) => void;
+}) {
+  const [draft, setDraft] = useState<number | string>(value);
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    setShown(value);
+    setDraft(value);
+  }
+  const commit = () => {
+    if (typeof draft !== "number" || draft < 1 || draft > MAX_STRIP_COUNT) return setDraft(value);
+    if (draft !== value) onCommit(draft);
+  };
+  return (
+    <NumberInput
+      label="Terminals"
+      size="xs"
+      min={1}
+      max={MAX_STRIP_COUNT}
+      allowDecimal={false}
+      allowNegative={false}
       value={draft}
       disabled={disabled}
       onChange={setDraft}

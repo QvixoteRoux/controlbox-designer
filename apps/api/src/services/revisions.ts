@@ -221,6 +221,10 @@ async function copyRevisionContent(tx: Prisma.TransactionClient, fromId: number,
           locked: p.locked,
           tag: p.tag,
           zIndex: p.zIndex,
+          count: p.count,
+          color: p.color,
+          groupLabel: p.groupLabel,
+          bridgedLevels: p.bridgedLevels,
         },
       });
       newIdOf.set(p.id, created.id);

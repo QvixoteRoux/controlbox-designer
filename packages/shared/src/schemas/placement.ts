@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { Id, NonNegativeUnits, PositiveUnits, Units } from "./common.js";
 import { CabinetParams, Platen, RevisionContext } from "./cabinet.js";
-import { ComponentKind } from "./enums.js";
+import { MAX_TERMINAL_LEVELS } from "./component.js";
+import { ComponentKind, TerminalColor } from "./enums.js";
 
 // Placements: catalog parts laid out on a cabinet's platen (guidelines/platen-editor.md).
 // x / y: top-left corner of the rotated bounding box, from the platen's top-left, +y down
@@ -18,6 +19,28 @@ export const PlacementParams = CabinetParams.extend({
 export const Rotation = z.union([z.literal(0), z.literal(90)]);
 export type Rotation = z.infer<typeof Rotation>;
 export const ROTATIONS = [0, 90] as const satisfies Rotation[];
+
+/** Terminal strips: up to 200 terminals side by side in one placement. */
+export const MAX_STRIP_COUNT = 200;
+export const DEFAULT_TERMINAL_COLOR: TerminalColor = "LIGHT_GREY";
+
+/** Kinds placed as strips (a count of identical terminals along the rail). */
+export const isStrip = (kind: ComponentKind) =>
+  kind === "TERMINAL_BLOCK" || kind === "GROUND_TERMINAL";
+/** Only terminal blocks have a colour, group label and bridged levels (ground terminals don't). */
+export const hasStripOptions = (kind: ComponentKind) => kind === "TERMINAL_BLOCK";
+
+const Count = z.number().int().min(1).max(MAX_STRIP_COUNT);
+/** Bridged levels, as a sorted set: [1], [1, 2]… */
+const BridgedLevels = z
+  .array(z.number().int().min(1).max(MAX_TERMINAL_LEVELS))
+  .transform((levels) => [...new Set(levels)].sort((a, b) => a - b));
+const GroupLabel = z
+  .string()
+  .trim()
+  .max(30)
+  .nullable()
+  .transform((s) => (s === "" ? null : s));
 
 const Tag = z
   .string()
@@ -62,6 +85,14 @@ export const Placement = z.object({
   /** Electrical tag, e.g. "-K1". */
   tag: z.string().nullable(),
   zIndex: z.number().int(),
+  /** Terminal strips: terminals side by side along the rail. 1 for everything else. */
+  count: Count,
+  /** TERMINAL_BLOCK only (light grey unless chosen); null for other kinds. */
+  color: TerminalColor.nullable(),
+  /** TERMINAL_BLOCK only. */
+  groupLabel: z.string().nullable(),
+  /** TERMINAL_BLOCK only: levels bridged across the whole strip. */
+  bridgedLevels: z.array(z.number().int()),
   part: PlacedPart,
 });
 export type Placement = z.infer<typeof Placement>;
@@ -78,6 +109,11 @@ export const CreatePlacementInput = z.object({
   length: PositiveUnits.nullable().default(null),
   railId: Id.nullable().default(null),
   tag: Tag.default(null),
+  count: Count.default(1),
+  /** null: light grey for terminal blocks. */
+  color: TerminalColor.nullable().default(null),
+  groupLabel: GroupLabel.default(null),
+  bridgedLevels: BridgedLevels.default([]),
 });
 export type CreatePlacementInput = z.infer<typeof CreatePlacementInput>;
 
@@ -96,6 +132,10 @@ export const UpdatePlacementInput = z
     locked: z.boolean(),
     tag: Tag,
     zIndex: z.number().int(),
+    count: Count,
+    color: TerminalColor,
+    groupLabel: GroupLabel,
+    bridgedLevels: BridgedLevels,
   })
   .partial()
   .refine((p) => Object.keys(p).length > 0, "Nothing to update");

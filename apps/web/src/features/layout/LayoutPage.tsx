@@ -24,6 +24,8 @@ import {
   Switch,
   Text,
   Title,
+  useComputedColorScheme,
+  useMantineTheme,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -36,6 +38,7 @@ import { StatusBadge } from "../projects/RevisionBadge";
 import { layoutQuery, useCreatePlacement, useDeletePlacement, useUpdatePlacement } from "./api";
 import { GRID, LayoutCanvas } from "./LayoutCanvas";
 import { changedFields } from "./moves";
+import { kindColors } from "./colors";
 import { PartList } from "./PartList";
 import { PropertiesPanel } from "./PropertiesPanel";
 
@@ -51,6 +54,7 @@ export function LayoutPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [gridSnap, setGridSnap] = useState(true);
   const [fitSignal, setFitSignal] = useState(0);
+  const colors = kindColors(useMantineTheme(), useComputedColorScheme("light") === "dark");
 
   if (layout.isPending) return <Loader />;
   if (layout.isError) return <Alert color="red">{errorMessage(layout.error)}</Alert>;
@@ -93,6 +97,10 @@ export function LayoutPage() {
         length: null,
         railId: r.railId,
         tag: null,
+        count: 1,
+        color: null,
+        groupLabel: null,
+        bridgedLevels: [],
       },
       { onSuccess: (p) => setSelectedId(p.id) },
     );
@@ -211,6 +219,7 @@ export function LayoutPage() {
                 <PropertiesPanel
                   key={selected.id}
                   placement={selected}
+                  colors={colors}
                   warnings={warnings.get(selected.id)}
                   nameOf={nameOf}
                   editable={editable}

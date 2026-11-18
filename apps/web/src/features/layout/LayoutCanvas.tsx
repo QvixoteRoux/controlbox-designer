@@ -1,7 +1,10 @@
 import {
+  DEFAULT_TERMINAL_COLOR,
   freeMove,
   hasWarning,
   isProfile,
+  isStrip,
+  terminalLevels,
   placementBox,
   snapMove,
   snapToGrid,
@@ -316,8 +319,16 @@ function PlacedShape({
   const stroke = selected ? colors.selected : warn ? colors.warn : base;
   const vertical = p.rotation === 90;
   const caption = p.tag ?? p.part.partNumber;
-  const fontSize = Math.min(11 * px, (vertical ? box.width : box.height) * 0.4);
+  const terminal =
+    p.part.kind === "TERMINAL_BLOCK" ? colors.terminal[p.color ?? DEFAULT_TERMINAL_COLOR] : null;
+  // Caption frame: along the part (turned with it) × across it.
+  const along = vertical ? box.height : box.width;
+  const across = vertical ? box.width : box.height;
+  // Strips get a second line with the number of terminals, under a divider.
+  const strip = isStrip(p.part.kind);
+  const fontSize = Math.min(11 * px, across * (strip ? 0.3 : 0.4));
   const showText = fontSize >= 6 * px;
+  const textFill = terminal?.text ?? colors.text;
   // The far end of a rail or gutter: drag it to cut the length.
   const lengthHandle = selected && draggable && isProfile(p.part.kind) && p.length !== null;
   const handle = 10 * px;
@@ -356,8 +367,13 @@ function PlacedShape({
               fill={colors.groundYellow}
             />
           </>
+        ) : terminal ? (
+          <Rect width={box.width} height={box.height} fill={terminal.fill} />
         ) : (
           <Rect width={box.width} height={box.height} fill={`${warn ? colors.warn : base}33`} />
+        )}
+        {isStrip(p.part.kind) && (
+          <StripDetails placement={p} vertical={vertical} px={px} colors={colors} />
         )}
         {p.part.kind === "RAIL" && (
           <Line
@@ -379,20 +395,53 @@ function PlacedShape({
           dash={p.locked ? [4 * px, 3 * px] : undefined}
         />
         {showText && (
-          <Text
-            width={vertical ? box.height : box.width}
-            height={vertical ? box.width : box.height}
-            x={vertical ? box.width : 0}
-            rotation={vertical ? 90 : 0}
-            align="center"
-            verticalAlign="middle"
-            text={caption}
-            fontSize={fontSize}
-            fill={colors.text}
-            wrap="none"
-            ellipsis
-            listening={false}
-          />
+          <Group x={vertical ? box.width : 0} rotation={vertical ? 90 : 0} listening={false}>
+            {strip ? (
+              <>
+                <Text
+                  width={along}
+                  height={across / 2 - fontSize * 0.3}
+                  align="center"
+                  verticalAlign="bottom"
+                  text={caption}
+                  fontSize={fontSize}
+                  fill={textFill}
+                  wrap="none"
+                  ellipsis
+                />
+                <Line
+                  points={[along * 0.1, across / 2, along * 0.9, across / 2]}
+                  stroke={textFill}
+                  strokeWidth={px}
+                  opacity={0.7}
+                />
+                <Text
+                  y={across / 2 + fontSize * 0.3}
+                  width={along}
+                  height={across / 2 - fontSize * 0.3}
+                  align="center"
+                  verticalAlign="top"
+                  text={`${p.count} pcs`}
+                  fontSize={fontSize}
+                  fill={textFill}
+                  wrap="none"
+                  ellipsis
+                />
+              </>
+            ) : (
+              <Text
+                width={along}
+                height={across}
+                align="center"
+                verticalAlign="middle"
+                text={caption}
+                fontSize={fontSize}
+                fill={textFill}
+                wrap="none"
+                ellipsis
+              />
+            )}
+          </Group>
         )}
       </Group>
       {lengthHandle && (
@@ -417,6 +466,91 @@ function PlacedShape({
               : e.target.x() + handle / 2 - box.x;
             onLength(Math.max(MIN_LENGTH, snap(end, e.evt.altKey)));
           }}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Inside a terminal strip: a divider between terminals (when they're far enough apart to
+ * see), a bar across the strip for each bridged level, and the group label outside the
+ * strip's top edge (its right edge on a vertical rail, where the top edge faces).
+ */
+function StripDetails({
+  placement: p,
+  vertical,
+  px,
+  colors,
+}: {
+  placement: Placement;
+  vertical: boolean;
+  px: number;
+  colors: ReturnType<typeof kindColors>;
+}) {
+  const box = placementBox(p);
+  const pitch = p.part.width;
+  const across = vertical ? box.width : box.height;
+  const along = vertical ? box.height : box.width;
+  const levels = Math.max(terminalLevels(p.part), 1);
+  const labelSize = 11 * px;
+
+  // One line between each pair of terminals, across the strip, in a colour that shows on the
+  // strip's housing colour (dark on light grey / beige / yellow / green-yellow, white on dark).
+  const lineColor =
+    p.part.kind === "TERMINAL_BLOCK"
+      ? colors.terminal[p.color ?? DEFAULT_TERMINAL_COLOR].text
+      : "#222";
+  const dividers = [];
+  if (pitch >= 2 * px) {
+    for (let i = 1; i < p.count; i++) {
+      const at = i * pitch;
+      dividers.push(
+        <Line
+          key={i}
+          points={vertical ? [0, at, box.width, at] : [at, 0, at, box.height]}
+          stroke={lineColor}
+          opacity={0.75}
+          strokeWidth={px}
+          listening={false}
+        />,
+      );
+    }
+  }
+
+  // Level 1 nearest the part's top edge; a bar 2 mm (at least 2 px) thick.
+  const thickness = Math.max(20, 2 * px);
+  const bridges = p.bridgedLevels.map((level) => {
+    const offset = (across * (level - 0.5)) / levels - thickness / 2;
+    return (
+      <Rect
+        key={level}
+        x={vertical ? across - offset - thickness : 0}
+        y={vertical ? 0 : offset}
+        width={vertical ? thickness : along}
+        height={vertical ? along : thickness}
+        fill={colors.bridge}
+        listening={false}
+      />
+    );
+  });
+
+  return (
+    <>
+      {bridges}
+      {dividers}
+      {p.groupLabel && (
+        <Text
+          x={vertical ? box.width + labelSize * 1.4 : 0}
+          y={vertical ? 0 : -labelSize * 1.4}
+          width={along}
+          rotation={vertical ? 90 : 0}
+          align="center"
+          text={p.groupLabel}
+          fontSize={labelSize}
+          fontStyle="bold"
+          fill={colors.text}
+          listening={false}
         />
       )}
     </>

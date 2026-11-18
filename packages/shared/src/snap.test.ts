@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   layoutWarnings,
+  placementBox,
   positionOnRail,
   withPatch,
   type PartGeometry,
   type PlacedGeometry,
 } from "./layout.js";
+import { CreatePlacementInput } from "./schemas/placement.js";
 import { freeMove, snapMove, type SnapOptions } from "./snap.js";
 
 const railPart: PartGeometry = {
@@ -144,5 +146,61 @@ describe("withPatch: parts follow their rail", () => {
     const warnings = layoutWarnings(after, options.platen);
     expect(warnings.get(child.id)?.offRail).toBe(false);
     expect(warnings.get(far.id)?.offRail).toBe(true);
+  });
+});
+
+describe("terminal strips", () => {
+  /** WDU 2.5: 5.1 mm pitch, 60 mm high, rail centred (offset 12.5 mm). */
+  const terminal: PartGeometry = {
+    kind: "TERMINAL_BLOCK",
+    width: 51,
+    height: 600,
+    railMount: true,
+    railEdgeOffset: 125,
+    stackable: true,
+    attributes: { levels: 1 },
+  };
+
+  it("is count terminals long along the rail, either way round", () => {
+    const strip = place(40, terminal, 0, 0, { count: 10 });
+    expect(placementBox(strip)).toMatchObject({ width: 510, height: 600 });
+    expect(placementBox({ ...strip, rotation: 90 })).toMatchObject({ width: 600, height: 510 });
+  });
+
+  it("butts up against a neighbouring strip's far end", () => {
+    const first = place(41, terminal, 1000, 1875, { railId: H.id, count: 10 }); // along 0…510
+    const next = place(42, terminal, 0, 0, { count: 4 });
+    const r = snapMove(next, { x: 1000 + 520 + 102, y: 2175 }, [H, first], options);
+    expect(r).toMatchObject({ x: 1510, y: 1875, railId: H.id });
+  });
+
+  it("warns when a strip grows past the end of its rail", () => {
+    const strip = place(43, terminal, 1000 + 4800, 1875, { railId: H.id, count: 3 }); // 4800…4953
+    expect(layoutWarnings([H, strip], options.platen).get(43)?.offRail).toBe(false);
+    const longer = { ...strip, count: 5 }; // …5055 > 5000
+    expect(layoutWarnings([H, longer], options.platen).get(43)?.offRail).toBe(true);
+  });
+
+  it("takes the strip options as a clean set", () => {
+    const input = CreatePlacementInput.parse({
+      componentId: 1,
+      x: 0,
+      y: 0,
+      count: 12,
+      groupLabel: " ",
+      bridgedLevels: [2, 1, 2],
+    });
+    expect(input).toMatchObject({
+      count: 12,
+      groupLabel: null,
+      bridgedLevels: [1, 2],
+      color: null,
+    });
+    expect(CreatePlacementInput.safeParse({ componentId: 1, x: 0, y: 0, count: 201 }).success).toBe(
+      false,
+    );
+    expect(
+      CreatePlacementInput.safeParse({ componentId: 1, x: 0, y: 0, bridgedLevels: [5] }).success,
+    ).toBe(false);
   });
 });

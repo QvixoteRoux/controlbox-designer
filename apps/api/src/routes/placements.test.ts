@@ -266,6 +266,80 @@ describe("parts on rails", () => {
   });
 });
 
+describe("terminal strips", () => {
+  const terminalPart = (kind: "TERMINAL_BLOCK" | "GROUND_TERMINAL", levels = 2) =>
+    db.component.create({
+      data: {
+        kind,
+        manufacturer: "Weidmüller",
+        partNumber: `WDU-${kind}-${levels}`,
+        height: 600,
+        width: 51,
+        depth: 465,
+        railMount: true,
+        railEdgeOffset: 125,
+        stackable: true,
+        attributes: kind === "TERMINAL_BLOCK" ? { levels } : {},
+      },
+    });
+
+  it("places a light grey terminal block strip, then edits it", async () => {
+    const t = await terminalPart("TERMINAL_BLOCK");
+    const strip = await place({ componentId: t.id, x: 0, y: 0, count: 10, groupLabel: "X1" });
+    expect(strip).toMatchObject({
+      count: 10,
+      color: "LIGHT_GREY",
+      groupLabel: "X1",
+      bridgedLevels: [],
+    });
+
+    const res = await call(designer, "PATCH", `${cab}/placements/${strip.id}`, {
+      count: 12,
+      color: "BLUE",
+      bridgedLevels: [2, 1],
+      groupLabel: "",
+    });
+    expect(Placement.parse(res.json())).toMatchObject({
+      count: 12,
+      color: "BLUE",
+      bridgedLevels: [1, 2],
+      groupLabel: null,
+    });
+  });
+
+  it("only bridges levels the terminal has", async () => {
+    const t = await terminalPart("TERMINAL_BLOCK", 2);
+    const strip = await place({ componentId: t.id, x: 0, y: 0 });
+    const res = await call(designer, "PATCH", `${cab}/placements/${strip.id}`, {
+      bridgedLevels: [3],
+    });
+    expect(res.statusCode).toBe(400);
+    expect(ApiErrorBody.parse(res.json()).message).toMatch(/2 levels/);
+  });
+
+  it("gives ground terminals a count only", async () => {
+    const pe = await terminalPart("GROUND_TERMINAL");
+    const strip = await place({ componentId: pe.id, x: 0, y: 0, count: 4 });
+    expect(strip).toMatchObject({ count: 4, color: null });
+    for (const patch of [{ color: "RED" }, { groupLabel: "PE" }, { bridgedLevels: [1] }]) {
+      const res = await call(designer, "PATCH", `${cab}/placements/${strip.id}`, patch);
+      expect(res.statusCode).toBe(400);
+    }
+  });
+
+  it("is only for terminals", async () => {
+    const res = await call(designer, "POST", `${cab}/placements`, {
+      componentId: contactor.id,
+      x: 0,
+      y: 0,
+      count: 3,
+    });
+    expect(res.statusCode).toBe(400);
+    const one = await place({ componentId: contactor.id, x: 0, y: 0 });
+    expect(one).toMatchObject({ count: 1, color: null, groupLabel: null, bridgedLevels: [] });
+  });
+});
+
 describe("a released layout", () => {
   it("is read-only and drawn from the release snapshot", async () => {
     const p = await place({ componentId: contactor.id, x: 0, y: 0 });

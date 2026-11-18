@@ -72,6 +72,17 @@ enum ComponentKind {
   RAIL
 }
 
+/// Housing colour of a placed terminal strip (TERMINAL_BLOCK only).
+enum TerminalColor {
+  LIGHT_GREY
+  DARK_GREY
+  BEIGE
+  RED
+  GREEN
+  BLUE
+  YELLOW
+}
+
 // ─────────────────────────────── Users ───────────────────────────────
 
 model User {
@@ -337,26 +348,35 @@ model CableGland {
 
 /// A catalog component placed on a platen.
 model Placement {
-  id          Int      @id @default(autoincrement())
-  platenId    Int      @map("platen_id")
-  componentId Int      @map("component_id")
+  id            Int            @id @default(autoincrement())
+  platenId      Int            @map("platen_id")
+  componentId   Int            @map("component_id")
   /// Top-left corner of the (rotated) bounding box, from the platen's top-left. +x right, +y down.
-  x           Int
-  y           Int
+  x             Int
+  y             Int
   /// 0 or 90, clockwise (180 / 270 look the same as outlines).
-  rotation    Int      @default(0)
+  rotation      Int            @default(0)
   /// GUTTER and RAIL only.
-  length      Int?
-  locked      Boolean  @default(false)
+  length        Int?
+  locked        Boolean        @default(false)
   /// Rail this component is snapped to (a placement whose component kind is RAIL).
-  railId      Int?     @map("rail_id")
+  railId        Int?           @map("rail_id")
   /// Electrical tag, e.g. "-K1", "-F3".
-  tag         String?
-  zIndex      Int      @default(0) @map("z_index")
+  tag           String?
+  /// Terminal strips: how many identical terminals side by side along the rail (1–200).
+  /// Other kinds: always 1.
+  count         Int            @default(1)
+  /// TERMINAL_BLOCK only (LIGHT_GREY unless chosen); NULL for other kinds.
+  color         TerminalColor?
+  /// TERMINAL_BLOCK only: optional group label, e.g. "X1".
+  groupLabel    String?        @map("group_label")
+  /// TERMINAL_BLOCK only: levels (1–4) bridged across the whole strip.
+  bridgedLevels Int[]          @default([]) @map("bridged_levels")
+  zIndex        Int            @default(0) @map("z_index")
   /// Catalog data frozen when the revision is released.
-  snapshot    Json?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  snapshot      Json?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
   platen    Platen      @relation(fields: [platenId], references: [id], onDelete: Cascade)
   component Component   @relation(fields: [componentId], references: [id], onDelete: Restrict)

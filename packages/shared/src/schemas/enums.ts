@@ -29,3 +29,14 @@ export const ComponentKind = z.enum([
   "RAIL",
 ]);
 export type ComponentKind = z.infer<typeof ComponentKind>;
+
+export const TerminalColor = z.enum([
+  "LIGHT_GREY",
+  "DARK_GREY",
+  "BEIGE",
+  "RED",
+  "GREEN",
+  "BLUE",
+  "YELLOW",
+]);
+export type TerminalColor = z.infer<typeof TerminalColor>;

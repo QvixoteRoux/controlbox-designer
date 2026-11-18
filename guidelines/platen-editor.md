@@ -37,14 +37,17 @@ No tolerance setting (owner, 2026-11-17): snapping is about parts on a rail sitt
 
 A part on a rail that hangs past the rail's end (after shortening the rail) gets a warning.
 
-## Terminal strips (planned, owner request 2026-11-17)
+## Terminal strips (owner request 2026-11-17)
 
-- A placed TERMINAL_BLOCK or GROUND_TERMINAL can be an **array in one direction only**: N terminals side by side along the rail (the narrow direction), one placement with a `count`.
+- A placed TERMINAL_BLOCK or GROUND_TERMINAL is a **strip**: `count` identical terminals side by side along the rail (1–200), one placement. Its length along the rail is count × the catalog width (the pitch, e.g. 5.1 mm for a WDU 2.5). It snaps, stacks, turns with its rail and warns past the rail's end like any rail part. Changing the count keeps the strip's start end where it is.
 - TERMINAL_BLOCK strips also have:
-  - an optional **group label**
-  - **bridged levels**: the levels whose terminals are all joined by a metal bridge strip. Drawn as a bar across the group, with a note.
+  - an optional **group label**, drawn outside the strip's top edge (its right edge on a vertical rail)
+  - **bridged levels**: levels whose terminals are all joined by a bridge (cross-connector) across the whole strip, drawn as an orange bar at that level. Level 1 is nearest the part's top edge. To bridge only part of a strip, split it into two strips.
   - a **colour**: light grey (default), dark grey, beige, red, green, blue or yellow.
-- GROUND_TERMINAL strips: array only. Always drawn half green, half yellow; no label, bridge or colour.
+- GROUND_TERMINAL strips: count only. Always drawn half green, half yellow; no label, bridge or colour.
+- A divider line is drawn across the strip between each pair of terminals (contrasting colour, over the bridges) when they're at least 2 px apart on screen, so the terminals can be counted. The caption shows the part number (or tag), a divider, and "N pcs".
+- Terminal numbering: not done; the group label only (owner).
+- **Open (owner, 2026-11-17):** end plates. Usually one per strip/group, vendor-specific (e.g. WAP 2.5-10, 1.5 mm). Not modelled yet. Bridges are drawn but not listed as parts (no BOM yet).
 
 ## Checks (warnings, not blocks)
 

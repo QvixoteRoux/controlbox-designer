@@ -84,6 +84,16 @@ ALTER TABLE placements
   ADD CONSTRAINT placements_rotation
   CHECK (rotation IN (0, 90));
 
+-- Placements: terminal strips (count 1-200, bridged levels among 1-4). Which kinds may
+-- use them is checked by the API. Added in migration terminal_strips.
+ALTER TABLE placements
+  ADD CONSTRAINT placements_strip
+  CHECK (
+        count BETWEEN 1 AND 200
+    AND bridged_levels IS NOT NULL
+    AND bridged_levels <@ ARRAY[1, 2, 3, 4]
+  );
+
 -- Openings: each kind carries the fields it needs.
 ALTER TABLE cabinet_openings
   ADD CONSTRAINT cabinet_openings_shape

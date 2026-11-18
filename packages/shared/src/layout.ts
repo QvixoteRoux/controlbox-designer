@@ -27,6 +27,8 @@ export interface PlacedGeometry {
   length: number | null;
   /** The rail placement this part is snapped to. */
   railId?: number | null;
+  /** Terminal strips: terminals side by side along the rail (1 when not given). */
+  count?: number;
   part: PartGeometry;
 }
 
@@ -42,23 +44,33 @@ export const isProfile = (kind: ComponentKind) => kind === "RAIL" || kind === "G
 
 /**
  * Size before rotation. Profiles lie horizontally at 0°: the length runs along x and the
- * profile width along y. Everything else is its catalog width × height as mounted.
+ * profile width along y. A terminal strip is `count` terminals wide. Everything else is its
+ * catalog width × height as mounted.
  */
-export function footprint(part: PartGeometry, length: number | null) {
+export function footprint(part: PartGeometry, length: number | null, count = 1) {
   return isProfile(part.kind)
     ? { width: length ?? stockLength(part) ?? 0, height: part.width }
-    : { width: part.width, height: part.height };
+    : { width: part.width * count, height: part.height };
 }
 
 /** Width × height after rotation: 90° swaps them. */
-export function rotatedSize(part: PartGeometry, length: number | null, rotation: Rotation) {
-  const f = footprint(part, length);
+export function rotatedSize(
+  part: PartGeometry,
+  length: number | null,
+  rotation: Rotation,
+  count = 1,
+) {
+  const f = footprint(part, length, count);
   return rotation === 90 ? { width: f.height, height: f.width } : f;
 }
 
 export function placementBox(p: Omit<PlacedGeometry, "id">): Box {
-  return { x: p.x, y: p.y, ...rotatedSize(p.part, p.length, p.rotation) };
+  return { x: p.x, y: p.y, ...rotatedSize(p.part, p.length, p.rotation, p.count) };
 }
+
+/** How much rail a part takes: its width, times the count for a terminal strip. */
+export const lengthAlongRail = (p: Pick<PlacedGeometry, "part" | "count">) =>
+  p.part.width * (p.count ?? 1);
 
 /** The new top-left after turning to `rotation`, keeping the centre where it was. */
 export function rotateInPlace(p: Omit<PlacedGeometry, "id">, rotation: Rotation) {
@@ -124,7 +136,7 @@ export function offItsRail(p: PlacedGeometry, rail: PlacedGeometry) {
   const along = alongRail(rail, p);
   const at = positionOnRail(rail, p.part, along);
   const misplaced = at.x !== p.x || at.y !== p.y || at.rotation !== p.rotation;
-  return misplaced || along < 0 || along + p.part.width > railFrame(rail).length;
+  return misplaced || along < 0 || along + lengthAlongRail(p) > railFrame(rail).length;
 }
 
 /**
