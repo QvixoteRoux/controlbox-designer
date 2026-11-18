@@ -20,6 +20,9 @@
 - Arrow keys nudge the selection by 1 mm; Shift + arrow nudges by 10 mm. A part on a rail only slides along it (clamped), like a typed position.
 - **Selection:** click selects a part; Shift / Ctrl + click adds or removes one; Shift + drag on the background selects every part the rectangle touches; Ctrl + A selects all; Esc clears.
 - **Several parts:** dragging one of them moves them all by the same distance (only the dragged part snaps). Parts on a rail that is also selected ride with the rail; parts on a rail that stays slide along it. Delete removes the selection; the panel offers Lock all / Unlock all.
+- **Rows on a rail** (owner, 2026-11-18): dragging a part on a rail also moves its **chain**, the parts on the same rail touching it in an unbroken row (butted, or overlapping), as if they were selected with it. A gap or a locked part ends the row. Only the dragged part snaps; the row keeps its spacing and stops as a whole at the rail's ends (`railChain()` in `layout.ts`, `slideWithChain()` in `apps/web/src/features/layout/moves.ts`). Arrow-key nudges and typed positions move only the selection.
+  - **Middle button + drag** moves only that one part (not its row, not the rest of the selection), still snapping and staying on its rail. Middle drag on the background pans.
+  - **Alt + drag** is unchanged: no snapping, and the part comes off its rail. Its row stays behind (the rest of the selection still follows).
 - **Locked** placements can't be dragged, nudged or edited numerically until they're unlocked. They're still selectable, and a multi-select move or delete leaves them alone.
 
 ## Snapping

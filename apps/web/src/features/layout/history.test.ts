@@ -1,7 +1,7 @@
 import { positionOnRail, type Placement } from "@cabinet-planner/shared";
 import { describe, expect, it } from "vitest";
 import { changesTo, newIds, remapIds } from "./history";
-import { followMoves } from "./moves";
+import { followMoves, slideWithChain } from "./moves";
 
 const part = (kind: Placement["part"]["kind"], extra: Partial<Placement["part"]> = {}) => ({
   componentId: kind === "RAIL" ? 1 : 2,
@@ -105,5 +105,30 @@ describe("followMoves (multi-select, nudge)", () => {
     expect(along).toMatchObject({ x: onRail.x + 10, y: onRail.y, railId: 1 });
     const across = followMoves([onRail], 0, 10, [rail, onRail], platen).get(2);
     expect(across).toMatchObject({ x: onRail.x, y: onRail.y, railId: 1 });
+  });
+});
+
+describe("slideWithChain (drag a part with its row)", () => {
+  // Rail 300 mm long; three 45 mm parts butted at 0, 45 and 90 mm along it.
+  const butted = (id: number, along: number) =>
+    placement(id, { ...positionOnRail(rail, part("STANDARD"), along), railId: 1 });
+  const first = butted(10, 0);
+  const last = butted(12, 900);
+  const all = [rail, first, butted(11, 450), last];
+
+  it("slides as asked when the row stays on the rail", () => {
+    const to = positionOnRail(rail, part("STANDARD"), 1000);
+    expect(slideWithChain(first, to, [11, 12], all)).toEqual({ x: to.x, y: to.y });
+  });
+
+  it("stops the row at the rail's end instead of the dragged part's", () => {
+    // The dragged part alone could go to 255 mm; the row (135 mm) only to 165 mm.
+    const to = positionOnRail(rail, part("STANDARD"), 2550);
+    expect(slideWithChain(first, to, [11, 12], all).x).toBe(rail.x + 1650);
+  });
+
+  it("stops the row at the rail's start, dragging from the far end", () => {
+    const to = positionOnRail(rail, part("STANDARD"), 0);
+    expect(slideWithChain(last, to, [10, 11], all).x).toBe(rail.x + 900);
   });
 });

@@ -1,5 +1,9 @@
 import {
+  alongRail,
   centreOf,
+  lengthAlongRail,
+  positionOnRail,
+  railFrame,
   snapMove,
   withPatch,
   type LayoutChange,
@@ -58,6 +62,32 @@ export function followMoves(
     }
   }
   return moves;
+}
+
+/**
+ * A part slid along its own rail with its chain (railChain): limits the slide so the whole row
+ * stays on the rail. Clamping each part on its own would bunch them up at the rail's end.
+ * Returns where the dragged part goes.
+ */
+export function slideWithChain(
+  p: Placement,
+  to: { x: number; y: number },
+  chain: number[],
+  all: Placement[],
+): { x: number; y: number } {
+  const rail = all.find((r) => r.id === p.railId);
+  if (!rail || chain.length === 0) return to;
+  let from = Infinity;
+  let end = -Infinity;
+  for (const q of all.filter((q) => q.id === p.id || chain.includes(q.id))) {
+    const a = alongRail(rail, q);
+    from = Math.min(from, a);
+    end = Math.max(end, a + lengthAlongRail(q));
+  }
+  const length = railFrame(rail).length;
+  const slide = Math.min(Math.max(alongRail(rail, to) - alongRail(rail, p), -from), length - end);
+  const at = positionOnRail(rail, p.part, alongRail(rail, p) + slide);
+  return { x: at.x, y: at.y };
 }
 
 /** The layout with these moves applied (rails carrying their parts), for the drag preview. */

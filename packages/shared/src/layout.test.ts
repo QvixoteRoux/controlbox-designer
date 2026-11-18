@@ -3,6 +3,7 @@ import {
   footprint,
   layoutWarnings,
   placementBox,
+  railChain,
   rotateInPlace,
   snapToGrid,
   type PartGeometry,
@@ -125,5 +126,38 @@ describe("layoutWarnings", () => {
 describe("snapToGrid", () => {
   it("rounds to the nearest step", () => {
     expect([24, 25, 26, -26].map((v) => snapToGrid(v, 50))).toEqual([0, 50, 50, -50]);
+  });
+});
+
+describe("railChain", () => {
+  // A horizontal rail at (1000, 2000), 500 mm long. Contactors are 45 mm wide.
+  const R = at(1, rail, 1000, 2000, { length: 5000 });
+  const on = (id: number, along: number, extra: Partial<PlacedGeometry> = {}) =>
+    at(id, contactor, 1000 + along, 1700, { railId: R.id, ...extra });
+
+  it("finds the parts touching in an unbroken row on both sides", () => {
+    const row = [R, on(2, 0), on(3, 450), on(4, 900), on(5, 1350)];
+    expect(railChain(row, 3).sort()).toEqual([2, 4, 5]);
+  });
+
+  it("stops at a gap", () => {
+    const row = [R, on(2, 0), on(3, 450), on(4, 960), on(5, 1410)];
+    expect(railChain(row, 2)).toEqual([3]);
+    expect(railChain(row, 5)).toEqual([4]);
+  });
+
+  it("stops at a locked part and leaves it out", () => {
+    const row = [R, on(2, 0), { ...on(3, 450), locked: true }, on(4, 900)];
+    expect(railChain(row, 2)).toEqual([]);
+  });
+
+  it("takes overlapping parts too, but not parts on another rail", () => {
+    const R2 = at(6, rail, 1000, 4000, { length: 5000 });
+    const other = at(7, contactor, 1450, 3700, { railId: R2.id });
+    expect(railChain([R, R2, on(2, 0), on(3, 400), other], 2)).toEqual([3]);
+  });
+
+  it("is empty for a part that isn't on a rail", () => {
+    expect(railChain([R, at(2, contactor, 0, 0), on(3, 0)], 2)).toEqual([]);
   });
 });

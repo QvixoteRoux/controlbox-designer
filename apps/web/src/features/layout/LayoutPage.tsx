@@ -384,7 +384,7 @@ function LayoutEditor({
 function Shortcuts({ editable }: { editable: boolean }) {
   const rows: [string, string][] = [
     ["Scroll", "zoom"],
-    ["Drag background", "pan"],
+    ["Drag background", "pan (left or middle button)"],
     ["Shift / Ctrl + click", "add to or remove from the selection"],
     ["Shift + drag background", "select an area"],
     ["Ctrl + A", "select all"],
@@ -396,7 +396,9 @@ function Shortcuts({ editable }: { editable: boolean }) {
       ["Delete", "delete the selection"],
       ["Ctrl + Z", "undo"],
       ["Ctrl + Y", "redo"],
-      ["Alt while dragging", "no snapping"],
+      ["Drag a part on a rail", "the parts touching it in a row come along"],
+      ["Middle-drag a part", "move only that part"],
+      ["Alt while dragging", "no snapping, off the rail"],
     );
   }
   return (

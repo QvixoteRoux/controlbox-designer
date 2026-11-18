@@ -6,6 +6,7 @@ import {
   isStrip,
   terminalLevels,
   placementBox,
+  railChain,
   snapMove,
   boxesOverlap,
   snapToGrid,
@@ -17,12 +18,12 @@ import {
 } from "@cabinet-planner/shared";
 import { Box, useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
-import type Konva from "konva";
+import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import { useRef, useState, type DragEvent } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { kindColors } from "./colors";
-import { followMoves, movesToChanges, withMoves, type MovePatch } from "./moves";
+import { followMoves, movesToChanges, slideWithChain, withMoves, type MovePatch } from "./moves";
 
 /** MIME type of a catalog part dragged from the part list. */
 export const PART_DRAG_TYPE = "application/x-cabinet-planner-component";
@@ -34,6 +35,20 @@ const MIN_LENGTH = 100;
 const PAD = 24;
 /** "Near" for snapping, in screen pixels (no setting: guidelines/platen-editor.md). */
 const SNAP_PX = 8;
+
+/** Middle mouse button: `MouseEvent.button` value, and its bit in `MouseEvent.buttons`. */
+const MIDDLE = 1;
+const MIDDLE_BUTTONS = 4;
+// Left drags as usual; middle drags one part on its own (and pans from the background).
+Konva.dragButtons = [0, MIDDLE];
+
+/** Keys and buttons held during a part drag. */
+interface DragKeys {
+  /** Alt: no snapping, off the rail. */
+  alt: boolean;
+  /** Middle button: only this part moves (not its chain or the rest of the selection). */
+  single: boolean;
+}
 
 interface Drag {
   /** The dragged part, plus the rest of the selection following it. */
@@ -128,21 +143,31 @@ export function LayoutCanvas(props: Props) {
       selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id],
     );
 
-  const dragMove = (p: Placement, node: Konva.Node, alt: boolean) => {
+  const dragMove = (p: Placement, node: Konva.Node, { alt, single }: DragKeys) => {
     const box = placementBox(shown.find((s) => s.id === p.id) ?? p); // as drawn now
     const centre = { x: node.x() + box.width / 2, y: node.y() + box.height / 2 };
+    // Its chain (the parts touching it in a row on its rail) comes along, unless it's moved on
+    // its own (middle button) or freely (Alt). It doesn't snap against parts that move with it.
+    const chain = alt || single ? [] : railChain(placements, p.id);
     const r = alt
       ? freeMove(p, centre)
-      : snapMove(p, centre, placements, {
-          tolerance: SNAP_PX * px,
-          grid: gridSnap ? GRID : null,
-          platen,
-        });
+      : snapMove(
+          p,
+          centre,
+          placements.filter((o) => !chain.includes(o.id)),
+          { tolerance: SNAP_PX * px, grid: gridSnap ? GRID : null, platen },
+        );
+    if (chain.length > 0 && r.railId === p.railId)
+      Object.assign(r, slideWithChain(p, r, chain, placements));
     node.position({ x: r.x, y: r.y });
-    // The rest of the selection follows by the same distance.
-    const others = selection.includes(p.id)
-      ? placements.filter((o) => o.id !== p.id && selection.includes(o.id))
-      : [];
+    // The chain and the rest of the selection follow by the same distance.
+    const others = single
+      ? []
+      : placements.filter(
+          (o) =>
+            o.id !== p.id &&
+            (chain.includes(o.id) || (selection.includes(p.id) && selection.includes(o.id))),
+        );
     const moves = followMoves(others, r.x - p.x, r.y - p.y, placements, platen, [p.id]);
     moves.set(p.id, {
       x: r.x,
@@ -247,6 +272,10 @@ export function LayoutCanvas(props: Props) {
           onMouseDown={(e) => {
             const stage = stageRef.current;
             if (!stage || (e.target !== stage && e.target.name() !== "platen")) return;
+            if (e.evt.button === MIDDLE) {
+              e.evt.preventDefault(); // middle drag on the background just pans
+              return;
+            }
             if (e.evt.shiftKey) {
               // Start a selection rectangle instead of panning.
               stage.draggable(false);
@@ -310,7 +339,7 @@ export function LayoutCanvas(props: Props) {
                   // A plain click (no drag) on a part of a bigger selection selects just it.
                   if (!modifier && selection.length > 1) onSelectionChange([p.id]);
                 }}
-                onDragMove={(node, alt) => dragMove(original(p.id) ?? p, node, alt)}
+                onDragMove={(node, keys) => dragMove(original(p.id) ?? p, node, keys)}
                 onDragEnd={dragEnd}
                 onLength={(length) => props.onEdit([{ op: "update", id: p.id, patch: { length } }])}
               />
@@ -371,7 +400,7 @@ function PlacedShape({
   /** Mouse down; `modifier`: Shift / Ctrl / Cmd held. */
   onPress: (modifier: boolean) => void;
   onClick: (modifier: boolean) => void;
-  onDragMove: (node: Konva.Node, alt: boolean) => void;
+  onDragMove: (node: Konva.Node, keys: DragKeys) => void;
   onDragEnd: () => void;
   onLength: (length: number) => void;
 }) {
@@ -417,11 +446,18 @@ function PlacedShape({
         draggable={draggable}
         onMouseDown={(e) => {
           e.cancelBubble = true;
-          onPress(e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
+          if (e.evt.button === MIDDLE) e.evt.preventDefault(); // no browser autoscroll
+          onPress(e.evt.button === 0 && (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey));
         }}
         onClick={(e) => onClick(e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey)}
         onTap={() => onPress(false)}
-        onDragMove={(e) => onDragMove(e.target, e.evt.altKey)}
+        onDragMove={(e) =>
+          onDragMove(e.target, {
+            alt: e.evt.altKey,
+            // Middle button held (and not the left one): this part on its own.
+            single: (e.evt.buttons & MIDDLE_BUTTONS) !== 0 && (e.evt.buttons & 1) === 0,
+          })
+        }
         onDragEnd={(e) => {
           e.cancelBubble = true; // not a stage pan
           onDragEnd();

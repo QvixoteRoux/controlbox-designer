@@ -140,6 +140,42 @@ export function offItsRail(p: PlacedGeometry, rail: PlacedGeometry) {
 }
 
 /**
+ * The chain of a part on a rail: the other parts on the same rail that touch it in an unbroken
+ * row (side by side with no gap, or overlapping), found by walking outwards from it. Dragging
+ * the part moves the chain with it. A locked part ends the row and isn't in it. Parts not on a
+ * rail have no chain.
+ */
+export function railChain<T extends PlacedGeometry & { locked?: boolean }>(
+  placements: T[],
+  id: number,
+): number[] {
+  const start = placements.find((p) => p.id === id);
+  const rail = start && placements.find((p) => p.id === start.railId);
+  if (!start || !rail) return [];
+  const span = (p: T) => {
+    const a = alongRail(rail, p);
+    return { from: a, to: a + lengthAlongRail(p) };
+  };
+  let { from, to } = span(start);
+  const chain: number[] = [];
+  const candidates = placements.filter((p) => p.id !== id && p.railId === rail.id && !p.locked);
+  for (let grown = true; grown;) {
+    grown = false;
+    for (const p of candidates) {
+      if (chain.includes(p.id)) continue;
+      const s = span(p);
+      if (s.from <= to && s.to >= from) {
+        chain.push(p.id);
+        from = Math.min(from, s.from);
+        to = Math.max(to, s.to);
+        grown = true;
+      }
+    }
+  }
+  return chain;
+}
+
+/**
  * Applies a change to one placement. When it's a rail that moves, turns or gets resized,
  * the parts on it come along: each keeps its distance along the rail and turns with it.
  * The editor (live while dragging, and optimistically) and the API use this same function.
