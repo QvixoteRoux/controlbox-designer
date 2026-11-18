@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inchesToUnits, toMm, toUnits, unitsToInches } from "./units.js";
+import { formatLength, inchesToUnits, toMm, toUnits, unitsToInches } from "./units.js";
 
 describe("toUnits", () => {
   it.each([
@@ -59,5 +59,16 @@ describe("unitsToInches", () => {
   it("shows a stored size in inches with 3 decimals", () => {
     expect(unitsToInches(254)).toBe(1);
     expect(unitsToInches(640)).toBe(2.52);
+  });
+});
+
+describe("formatLength", () => {
+  it.each([
+    [12000, "1200 mm / 47.24 in"],
+    [4500, "450 mm / 17.72 in"],
+    [12345, "1234.5 mm / 48.60 in"],
+    [0, "0 mm / 0.00 in"],
+  ])("%d units → %s", (u, label) => {
+    expect(formatLength(u)).toBe(label);
   });
 });

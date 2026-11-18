@@ -1,5 +1,7 @@
 import {
   DEFAULT_TERMINAL_COLOR,
+  footprint,
+  formatLength,
   freeMove,
   hasWarning,
   isProfile,
@@ -408,7 +410,10 @@ function PlacedShape({
   const base = colors.kind[p.part.kind];
   const stroke = selected ? colors.selected : warn ? colors.warn : base;
   const vertical = p.rotation === 90;
-  const caption = p.tag ?? p.part.partNumber;
+  // Rails and gutters add their cut length: "TS35x7.5 · 1200 mm / 47.24 in".
+  const caption = isProfile(p.part.kind)
+    ? `${p.tag ?? p.part.partNumber} · ${formatLength(footprint(p.part, p.length).width)}`
+    : (p.tag ?? p.part.partNumber);
   const terminal =
     p.part.kind === "TERMINAL_BLOCK" ? colors.terminal[p.color ?? DEFAULT_TERMINAL_COLOR] : null;
   // Caption frame: the text runs along `along`, and `across` is the room for its height.
@@ -425,8 +430,17 @@ function PlacedShape({
       : { x: 0, y: box.height, rotation: -90 };
   // Strips get a second line with the number of terminals, under a divider.
   const strip = isStrip(p.part.kind);
-  // Screen size cap: 11 px on rails and gutters, 13 px on the rotated part captions.
-  const fontSize = Math.min((isProfile(p.part.kind) ? 11 : 13) * px, across * (strip ? 0.3 : 0.4));
+  // Screen size cap: 11 px on rails and gutters, 13 px on the rotated part captions. A rail's
+  // caption is smaller (0.3 of its width) and sits ~20% from its top edge (its right edge when
+  // vertical), clear of the dashed centre line.
+  const rail = p.part.kind === "RAIL";
+  const fontSize = Math.min(
+    (isProfile(p.part.kind) ? 11 : 13) * px,
+    across * (strip || rail ? 0.3 : 0.4),
+  );
+  const captionBand = rail
+    ? { y: across * 0.22 - fontSize / 2, height: fontSize }
+    : { y: 0, height: across };
   const showText = fontSize >= 6 * px;
   const textFill = terminal?.text ?? colors.text;
   // The far end of a rail or gutter: drag it to cut the length.
@@ -538,8 +552,8 @@ function PlacedShape({
               </>
             ) : (
               <Text
+                {...captionBand}
                 width={along}
-                height={across}
                 align="center"
                 verticalAlign="middle"
                 text={caption}

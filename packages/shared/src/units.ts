@@ -17,3 +17,13 @@ export const inchesToUnits = (inches: number) => toUnits(Math.round(inches * MM_
 
 /** Stored units → inches, for showing a size in an inch field (3 decimals). */
 export const unitsToInches = (u: number) => Math.round((toMm(u) / MM_PER_INCH) * 1000) / 1000;
+
+/**
+ * A length for labels in both units: "1200 mm / 47.24 in". Whole millimetres, or one decimal
+ * when the length has one; inches to 2 decimals.
+ */
+export function formatLength(u: number) {
+  const mm = toMm(u);
+  const inches = (mm / MM_PER_INCH).toFixed(2);
+  return `${Number.isInteger(mm) ? mm : mm.toFixed(1)} mm / ${inches} in`;
+}
