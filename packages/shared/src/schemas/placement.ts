@@ -121,25 +121,68 @@ export type CreatePlacementInput = z.infer<typeof CreatePlacementInput>;
  * PATCH …/placements/:placementId. A locked placement only accepts `locked`.
  * Moving or turning a rail carries the parts on it (`withPatch` in layout.ts).
  */
+const patchFields = {
+  x: Units,
+  y: Units,
+  rotation: Rotation,
+  length: PositiveUnits,
+  /** Snap onto a rail (rail-mounted parts, same rotation as the rail), or null to leave it. */
+  railId: Id.nullable(),
+  locked: z.boolean(),
+  tag: Tag,
+  zIndex: z.number().int(),
+  count: Count,
+  color: TerminalColor,
+  groupLabel: GroupLabel,
+  bridgedLevels: BridgedLevels,
+};
 export const UpdatePlacementInput = z
-  .strictObject({
-    x: Units,
-    y: Units,
-    rotation: Rotation,
-    length: PositiveUnits,
-    /** Snap onto a rail (rail-mounted parts, same rotation as the rail), or null to leave it. */
-    railId: Id.nullable(),
-    locked: z.boolean(),
-    tag: Tag,
-    zIndex: z.number().int(),
-    count: Count,
-    color: TerminalColor,
-    groupLabel: GroupLabel,
-    bridgedLevels: BridgedLevels,
-  })
+  .strictObject(patchFields)
   .partial()
   .refine((p) => Object.keys(p).length > 0, "Nothing to update");
 export type UpdatePlacementInput = z.infer<typeof UpdatePlacementInput>;
+
+// ── Batches (multi-select, undo / redo) ──
+
+/** A placement id, or the negative temporary id of a placement created earlier in the batch. */
+const Ref = z
+  .number()
+  .int()
+  .refine((n) => n !== 0, "Not an id");
+export const TempId = z.number().int().negative();
+
+const CreateChange = CreatePlacementInput.extend({
+  op: z.literal("create"),
+  tempId: TempId,
+  railId: Ref.nullable().default(null),
+  locked: z.boolean().default(false),
+  /** Given by undo, to put a part back at its old place in the z-order. */
+  zIndex: z.number().int().optional(),
+});
+const UpdateChange = z.object({
+  op: z.literal("update"),
+  id: Ref,
+  patch: z
+    .strictObject({ ...patchFields, railId: Ref.nullable() })
+    .partial()
+    .refine((p) => Object.keys(p).length > 0, "Nothing to update"),
+});
+const DeleteChange = z.object({ op: z.literal("delete"), id: Ref });
+
+export const LayoutChange = z.discriminatedUnion("op", [CreateChange, UpdateChange, DeleteChange]);
+export type LayoutChange = z.input<typeof LayoutChange>;
+
+/** POST …/cabinets/:cabinetId/layout/changes: applied in order, all or nothing. */
+export const LayoutChanges = z.object({ changes: z.array(LayoutChange).min(1).max(1000) });
+export type LayoutChanges = z.infer<typeof LayoutChanges>;
+
+export const LayoutChangesResult = z.object({
+  /** Every placement on the platen afterwards, back to front. */
+  placements: z.array(Placement),
+  /** The real ids given to the batch's creates. */
+  created: z.array(z.object({ tempId: TempId, id: Id })),
+});
+export type LayoutChangesResult = z.infer<typeof LayoutChangesResult>;
 
 /** GET …/cabinets/:cabinetId/layout: everything the platen editor draws. */
 export const LayoutDetail = z.object({

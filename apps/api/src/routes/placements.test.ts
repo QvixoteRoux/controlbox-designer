@@ -1,4 +1,10 @@
-import { ApiErrorBody, LayoutDetail, Placement, positionOnRail } from "@cabinet-planner/shared";
+import {
+  ApiErrorBody,
+  LayoutChangesResult,
+  LayoutDetail,
+  Placement,
+  positionOnRail,
+} from "@cabinet-planner/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addUser, buildTestApp, builtInRail, db, login, resetDb } from "../../test/helpers.js";
 import { releaseRevision } from "../services/revisions.js";
@@ -337,6 +343,75 @@ describe("terminal strips", () => {
     expect(res.statusCode).toBe(400);
     const one = await place({ componentId: contactor.id, x: 0, y: 0 });
     expect(one).toMatchObject({ count: 1, color: null, groupLabel: null, bridgedLevels: [] });
+  });
+});
+
+describe("batches of changes", () => {
+  const batch = (changes: object[], cookies = designer) =>
+    call(cookies, "POST", `${cab}/layout/changes`, { changes });
+
+  it("applies several changes in one go and returns the whole layout", async () => {
+    const a = await place({ componentId: contactor.id, x: 0, y: 0 });
+    const b = await place({ componentId: contactor.id, x: 500, y: 0 });
+
+    const res = await batch([
+      { op: "update", id: a.id, patch: { x: 100 } },
+      { op: "update", id: b.id, patch: { x: 600 } },
+      { op: "create", tempId: -1, componentId: contactor.id, x: 1000, y: 0, tag: "-K3" },
+    ]);
+    expect(res.statusCode, res.body).toBe(200);
+    const result = LayoutChangesResult.parse(res.json());
+    expect(result.placements.map((p) => [p.x, p.tag])).toEqual([
+      [100, null],
+      [600, null],
+      [1000, "-K3"],
+    ]);
+    expect(result.created).toEqual([{ tempId: -1, id: result.placements[2]!.id }]);
+  });
+
+  it("is all or nothing", async () => {
+    const a = await place({ componentId: contactor.id, x: 0, y: 0 });
+    const locked = await place({ componentId: contactor.id, x: 500, y: 0 });
+    await call(designer, "PATCH", `${cab}/placements/${locked.id}`, { locked: true });
+
+    const res = await batch([
+      { op: "update", id: a.id, patch: { x: 100 } },
+      { op: "delete", id: locked.id },
+    ]);
+    expect(res.statusCode).toBe(409);
+    expect((await layout()).placements.find((p) => p.id === a.id)?.x).toBe(0);
+  });
+
+  it("puts a deleted rail back with its parts on it (undo)", async () => {
+    const r = await place({ componentId: rail.id, x: 500, y: 1000, length: 3000 });
+    const k = await place({ componentId: contactor.id, x: 800, y: 800, railId: r.id });
+    await batch([{ op: "delete", id: r.id }]);
+
+    const res = await batch([
+      {
+        op: "create",
+        tempId: -1,
+        componentId: rail.id,
+        x: 500,
+        y: 1000,
+        length: 3000,
+        zIndex: r.zIndex,
+      },
+      { op: "update", id: k.id, patch: { railId: -1 } },
+    ]);
+    expect(res.statusCode, res.body).toBe(200);
+    const { placements, created } = LayoutChangesResult.parse(res.json());
+    const newRail = created[0]!.id;
+    expect(placements.find((p) => p.id === k.id)).toMatchObject({ railId: newRail, x: 800 });
+    expect(placements.find((p) => p.id === newRail)).toMatchObject({ zIndex: r.zIndex });
+  });
+
+  it("needs the projects permission and a working revision", async () => {
+    const a = await place({ componentId: contactor.id, x: 0, y: 0 });
+    const change = [{ op: "update", id: a.id, patch: { x: 5 } }];
+    expect((await batch(change, viewer)).statusCode).toBe(403);
+    await releaseRevision(db, machineId, 1, userId, "First release");
+    expect((await batch(change)).statusCode).toBe(409);
   });
 });
 

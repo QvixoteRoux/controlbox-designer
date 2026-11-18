@@ -7,13 +7,13 @@ import {
   terminalLevels,
   placementBox,
   snapMove,
+  boxesOverlap,
   snapToGrid,
   toMm,
-  withPatch,
   type Guide,
+  type LayoutChange,
   type LayoutWarnings,
   type Placement,
-  type UpdatePlacementInput,
 } from "@cabinet-planner/shared";
 import { Box, useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
@@ -22,7 +22,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useRef, useState, type DragEvent } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { kindColors } from "./colors";
-import { changedFields, type MovePatch } from "./moves";
+import { followMoves, movesToChanges, withMoves, type MovePatch } from "./moves";
 
 /** MIME type of a catalog part dragged from the part list. */
 export const PART_DRAG_TYPE = "application/x-cabinet-planner-component";
@@ -36,8 +36,8 @@ const PAD = 24;
 const SNAP_PX = 8;
 
 interface Drag {
-  id: number;
-  move: MovePatch;
+  /** The dragged part, plus the rest of the selection following it. */
+  moves: Map<number, MovePatch>;
   guides: Guide[];
   /** The placements when the drag started; the drag preview ends once they change. */
   base: Placement[];
@@ -54,15 +54,15 @@ interface Props {
   platen: { width: number; height: number };
   placements: Placement[];
   warnings: Map<number, LayoutWarnings>;
-  selectedId: number | null;
-  onSelect: (id: number | null) => void;
+  /** Selected placement ids. */
+  selection: number[];
+  onSelectionChange: (ids: number[]) => void;
   editable: boolean;
   gridSnap: boolean;
   /** Bumped by the "Fit" button to reset zoom and pan. */
   fitSignal: number;
-  /** A drag ended: the fields that changed (position, and rotation / rail when snapped). */
-  onMove: (id: number, patch: UpdatePlacementInput) => void;
-  onLength: (id: number, length: number) => void;
+  /** A drag or a length handle ended: the changes to save (one undo step). */
+  onEdit: (changes: LayoutChange[]) => void;
   /** A part was dropped from the list at this point (platen units). */
   onDropPart: (componentId: number, at: { x: number; y: number }) => void;
 }
@@ -70,11 +70,13 @@ interface Props {
 /**
  * The platen to scale. Stage coordinates are platen units (0.1 mm, top-left origin, +y down);
  * the view transform does the zoom and pan. Wheel zooms around the pointer, dragging the
- * background pans. Dragged parts snap (snapMove: rails, side by side, alignment, grid); Alt
- * turns snapping off. Parts on a rail follow it while it's dragged.
+ * background pans, Shift + drag on the background selects an area. Click selects, Shift /
+ * Ctrl + click adds or removes. Dragged parts snap (snapMove: rails, side by side, alignment,
+ * grid); Alt turns snapping off. The rest of the selection follows the dragged part, and parts
+ * on a rail follow it.
  */
 export function LayoutCanvas(props: Props) {
-  const { platen, placements, warnings, selectedId, onSelect, editable, gridSnap } = props;
+  const { platen, placements, warnings, selection, onSelectionChange, editable, gridSnap } = props;
   const { ref, width, height } = useElementSize();
   const stageRef = useRef<Konva.Stage>(null);
   const theme = useMantineTheme();
@@ -110,7 +112,21 @@ export function LayoutCanvas(props: Props) {
   // along). After the drop the preview stays until the saved change shows up, so nothing jumps.
   const [drag, setDrag] = useState<Drag | null>(null);
   if (drag?.dropped && drag.base !== placements) setDrag(null);
-  const shown = drag ? withPatch(placements, drag.id, drag.move) : placements;
+  const shown = drag ? withMoves(placements, drag.moves) : placements;
+
+  // Shift + drag on the background: a selection rectangle (platen units).
+  const [band, setBand] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const bandBox = band && {
+    x: Math.min(band.x0, band.x1),
+    y: Math.min(band.y0, band.y1),
+    width: Math.abs(band.x1 - band.x0),
+    height: Math.abs(band.y1 - band.y0),
+  };
+
+  const toggle = (id: number) =>
+    onSelectionChange(
+      selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id],
+    );
 
   const dragMove = (p: Placement, node: Konva.Node, alt: boolean) => {
     const box = placementBox(shown.find((s) => s.id === p.id) ?? p); // as drawn now
@@ -123,25 +139,25 @@ export function LayoutCanvas(props: Props) {
           platen,
         });
     node.position({ x: r.x, y: r.y });
-    setDrag({
-      id: p.id,
-      move: {
-        x: r.x,
-        y: r.y,
-        rotation: r.rotation,
-        railId: p.part.railMount ? r.railId : p.railId,
-      },
-      guides: r.guides,
-      base: drag?.base ?? placements,
-      dropped: false,
+    // The rest of the selection follows by the same distance.
+    const others = selection.includes(p.id)
+      ? placements.filter((o) => o.id !== p.id && selection.includes(o.id))
+      : [];
+    const moves = followMoves(others, r.x - p.x, r.y - p.y, placements, platen, [p.id]);
+    moves.set(p.id, {
+      x: r.x,
+      y: r.y,
+      rotation: r.rotation,
+      railId: p.part.railMount ? r.railId : p.railId,
     });
+    setDrag({ moves, guides: r.guides, base: drag?.base ?? placements, dropped: false });
   };
 
-  const dragEnd = (p: Placement) => {
-    if (drag?.id !== p.id) return;
-    const patch = changedFields(p, drag.move);
-    if (Object.keys(patch).length === 0) return setDrag(null);
-    props.onMove(p.id, patch);
+  const dragEnd = () => {
+    if (!drag || drag.dropped) return;
+    const changes = movesToChanges(drag.moves, placements);
+    if (changes.length === 0) return setDrag(null);
+    props.onEdit(changes);
     setDrag({ ...drag, guides: [], dropped: true });
   };
 
@@ -221,7 +237,7 @@ export function LayoutCanvas(props: Props) {
           y={view.y}
           scaleX={view.scale}
           scaleY={view.scale}
-          draggable
+          draggable={band === null}
           onWheel={onWheel}
           onDragEnd={(e) => {
             if (e.target === stageRef.current) {
@@ -229,7 +245,28 @@ export function LayoutCanvas(props: Props) {
             }
           }}
           onMouseDown={(e) => {
-            if (e.target === stageRef.current || e.target.name() === "platen") onSelect(null);
+            const stage = stageRef.current;
+            if (!stage || (e.target !== stage && e.target.name() !== "platen")) return;
+            if (e.evt.shiftKey) {
+              // Start a selection rectangle instead of panning.
+              stage.draggable(false);
+              const at = stage.getRelativePointerPosition();
+              if (at) setBand({ x0: at.x, y0: at.y, x1: at.x, y1: at.y });
+            } else if (!e.evt.ctrlKey && !e.evt.metaKey) {
+              onSelectionChange([]);
+            }
+          }}
+          onMouseMove={() => {
+            const at = stageRef.current?.getRelativePointerPosition();
+            if (band && at) setBand({ ...band, x1: at.x, y1: at.y });
+          }}
+          onMouseUp={() => {
+            if (!bandBox) return;
+            const hit = placements
+              .filter((p) => boxesOverlap(placementBox(p), bandBox))
+              .map((p) => p.id);
+            onSelectionChange([...new Set([...selection, ...hit])]);
+            setBand(null);
           }}
         >
           <Layer>
@@ -259,17 +296,35 @@ export function LayoutCanvas(props: Props) {
                 key={p.id}
                 placement={p}
                 warn={hasWarning(warnings.get(p.id))}
-                selected={p.id === selectedId}
+                selected={selection.includes(p.id)}
+                lengthHandle={editable && selection.length === 1 && selection[0] === p.id}
                 draggable={editable && !p.locked}
                 px={px}
                 colors={colors}
                 snap={snap}
-                onSelect={() => onSelect(p.id)}
+                onPress={(modifier) => {
+                  if (modifier) toggle(p.id);
+                  else if (!selection.includes(p.id)) onSelectionChange([p.id]);
+                }}
+                onClick={(modifier) => {
+                  // A plain click (no drag) on a part of a bigger selection selects just it.
+                  if (!modifier && selection.length > 1) onSelectionChange([p.id]);
+                }}
                 onDragMove={(node, alt) => dragMove(original(p.id) ?? p, node, alt)}
-                onDragEnd={() => dragEnd(original(p.id) ?? p)}
-                onLength={(length) => props.onLength(p.id, length)}
+                onDragEnd={dragEnd}
+                onLength={(length) => props.onEdit([{ op: "update", id: p.id, patch: { length } }])}
               />
             ))}
+            {bandBox && (
+              <Rect
+                {...bandBox}
+                stroke={colors.selected}
+                strokeWidth={px}
+                dash={[4 * px, 3 * px]}
+                fill={`${colors.selected}22`}
+                listening={false}
+              />
+            )}
             {drag?.guides.map((g) => (
               <Line
                 key={`${g.axis}${g.at}`}
@@ -293,11 +348,13 @@ function PlacedShape({
   placement: p,
   warn,
   selected,
+  lengthHandle: showLengthHandle,
   draggable,
   px,
   colors,
   snap,
-  onSelect,
+  onPress,
+  onClick,
   onDragMove,
   onDragEnd,
   onLength,
@@ -305,11 +362,15 @@ function PlacedShape({
   placement: Placement;
   warn: boolean;
   selected: boolean;
+  /** Only when this part alone is selected. */
+  lengthHandle: boolean;
   draggable: boolean;
   px: number;
   colors: ReturnType<typeof kindColors>;
   snap: (v: number, alt: boolean) => number;
-  onSelect: () => void;
+  /** Mouse down; `modifier`: Shift / Ctrl / Cmd held. */
+  onPress: (modifier: boolean) => void;
+  onClick: (modifier: boolean) => void;
   onDragMove: (node: Konva.Node, alt: boolean) => void;
   onDragEnd: () => void;
   onLength: (length: number) => void;
@@ -330,7 +391,7 @@ function PlacedShape({
   const showText = fontSize >= 6 * px;
   const textFill = terminal?.text ?? colors.text;
   // The far end of a rail or gutter: drag it to cut the length.
-  const lengthHandle = selected && draggable && isProfile(p.part.kind) && p.length !== null;
+  const lengthHandle = showLengthHandle && draggable && isProfile(p.part.kind) && p.length !== null;
   const handle = 10 * px;
 
   const setCursor = (e: KonvaEventObject<MouseEvent>, cursor: string) => {
@@ -346,9 +407,10 @@ function PlacedShape({
         draggable={draggable}
         onMouseDown={(e) => {
           e.cancelBubble = true;
-          onSelect();
+          onPress(e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey);
         }}
-        onTap={onSelect}
+        onClick={(e) => onClick(e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey)}
+        onTap={() => onPress(false)}
         onDragMove={(e) => onDragMove(e.target, e.evt.altKey)}
         onDragEnd={(e) => {
           e.cancelBubble = true; // not a stage pan

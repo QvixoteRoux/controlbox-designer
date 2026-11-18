@@ -1,6 +1,7 @@
 import {
   CabinetParams,
   CreatePlacementInput,
+  LayoutChanges,
   PlacementParams,
   UpdatePlacementInput,
 } from "@cabinet-planner/shared";
@@ -8,6 +9,7 @@ import type { FastifyPluginCallback } from "fastify";
 import { requireAuth, requirePermission } from "../auth/guards.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import {
+  applyLayoutChanges,
   createPlacement,
   deletePlacement,
   getLayout,
@@ -53,6 +55,11 @@ export const placementsRoutes: FastifyPluginCallback<PlacementsRoutesOptions> = 
       placementId,
       UpdatePlacementInput.parse(request.body),
     );
+  });
+
+  app.post(`${CAB}/layout/changes`, write, (request) => {
+    const { cabinetId, ...ref } = CabinetParams.parse(request.params);
+    return applyLayoutChanges(db, ref, cabinetId, LayoutChanges.parse(request.body));
   });
 
   app.delete(`${CAB}/placements/:placementId`, write, async (request, reply) => {

@@ -1,9 +1,9 @@
 import {
+  LayoutChangesResult,
   LayoutDetail,
-  Placement,
   withPatch,
-  type CreatePlacementInput,
-  type UpdatePlacementInput,
+  type LayoutChange,
+  type Placement,
 } from "@cabinet-planner/shared";
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
@@ -37,80 +37,51 @@ export const layoutQuery = (ref: RevisionRef, cabinetId: number) =>
   });
 
 /**
- * Layout writes apply to the cached layout first (optimistic), so dragging feels instant.
- * A failure rolls the change back and shows a toast; the server stays authoritative.
+ * Every editor write is a batch of changes (POST …/layout/changes), so a multi-select move,
+ * a delete and an undo are each one save. The cached layout changes first (optimistic: moves
+ * and deletes show at once, new parts once the server answers); the server's answer then
+ * replaces it. A failure rolls back and shows a toast.
  */
-function useLayoutMutation<TInput, TResult>(
-  ref: RevisionRef,
-  cabinetId: number,
-  mutationFn: (input: TInput) => Promise<TResult>,
-  optimistic: (layout: LayoutDetail, input: TInput) => LayoutDetail,
-  settle?: (layout: LayoutDetail, result: TResult, input: TInput) => LayoutDetail,
-) {
+export function useLayoutChanges(ref: RevisionRef, cabinetId: number) {
   const queryClient = useQueryClient();
   const key = layoutKey(ref, cabinetId);
   return useMutation({
-    mutationFn,
-    onMutate: async (input: TInput) => {
+    mutationFn: (changes: LayoutChange[]) =>
+      api.post(`${apiBase(ref, cabinetId)}/layout/changes`, { changes }, LayoutChangesResult),
+    onMutate: async (changes) => {
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<LayoutDetail>(key);
-      if (previous) queryClient.setQueryData(key, optimistic(previous, input));
+      if (previous) {
+        queryClient.setQueryData(key, {
+          ...previous,
+          placements: predict(previous.placements, changes),
+        });
+      }
       return { previous };
     },
-    onError: (err, _input, context) => {
+    onError: (err, _changes, context) => {
       if (context?.previous) queryClient.setQueryData(key, context.previous);
       notifications.show({ color: "red", message: errorMessage(err) });
     },
-    onSuccess: (result, input) => {
-      if (!settle) return;
+    onSuccess: (result) => {
       queryClient.setQueryData<LayoutDetail>(key, (layout) =>
-        layout ? settle(layout, result, input) : layout,
+        layout ? { ...layout, placements: result.placements } : layout,
       );
     },
   });
 }
 
-const replace = (layout: LayoutDetail, placement: Placement): LayoutDetail => ({
-  ...layout,
-  placements: layout.placements.map((p) => (p.id === placement.id ? placement : p)),
-});
-
-export const useCreatePlacement = (ref: RevisionRef, cabinetId: number) =>
-  useLayoutMutation(
-    ref,
-    cabinetId,
-    (input: CreatePlacementInput) =>
-      api.post(`${apiBase(ref, cabinetId)}/placements`, input, Placement),
-    (layout) => layout, // drawn once the server answers (it fills in length and z-order)
-    (layout, created) => ({ ...layout, placements: [...layout.placements, created] }),
-  );
-
-export const useUpdatePlacement = (ref: RevisionRef, cabinetId: number) =>
-  useLayoutMutation(
-    ref,
-    cabinetId,
-    ({ id, patch }: { id: number; patch: UpdatePlacementInput }) =>
-      api.patch(`${apiBase(ref, cabinetId)}/placements/${id}`, patch, Placement),
-    // withPatch: a moved rail carries its parts, exactly as the API does.
-    (layout, { id, patch }) => ({
-      ...layout,
-      placements: withPatch(layout.placements, id, patch).sort(
-        (a, b) => a.zIndex - b.zIndex || a.id - b.id,
-      ),
-    }),
-    replace,
-  );
-
-export const useDeletePlacement = (ref: RevisionRef, cabinetId: number) =>
-  useLayoutMutation(
-    ref,
-    cabinetId,
-    (id: number) => api.delete(`${apiBase(ref, cabinetId)}/placements/${id}`),
-    // Parts on a deleted rail stay where they are, off the rail.
-    (layout, id) => ({
-      ...layout,
-      placements: layout.placements
-        .filter((p) => p.id !== id)
-        .map((p) => (p.railId === id ? { ...p, railId: null } : p)),
-    }),
-  );
+/** The layout as the API will leave it, as far as it can be known before it answers. */
+function predict(placements: Placement[], changes: LayoutChange[]): Placement[] {
+  let next = placements;
+  for (const c of changes) {
+    if (c.op === "update") {
+      next = withPatch(next, c.id, c.patch as Partial<Placement>);
+    } else if (c.op === "delete") {
+      next = next
+        .filter((p) => p.id !== c.id)
+        .map((p) => (p.railId === c.id ? { ...p, railId: null } : p));
+    }
+  }
+  return [...next].sort((a, b) => a.zIndex - b.zIndex || a.id - b.id);
+}

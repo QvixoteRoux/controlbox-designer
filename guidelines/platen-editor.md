@@ -16,8 +16,10 @@
 
 - Drag a component from the list onto the platen to create a placement.
 - Move it by dragging, or by typing X and Y on the right. Both go through the same snap and validation code.
-- Arrow keys nudge by 1 mm; Shift + arrow nudges by 10 mm.
-- **Locked** placements can't be dragged, nudged or edited numerically until they're unlocked. They're still selectable.
+- Arrow keys nudge the selection by 1 mm; Shift + arrow nudges by 10 mm. A part on a rail only slides along it (clamped), like a typed position.
+- **Selection:** click selects a part; Shift / Ctrl + click adds or removes one; Shift + drag on the background selects every part the rectangle touches; Ctrl + A selects all; Esc clears.
+- **Several parts:** dragging one of them moves them all by the same distance (only the dragged part snaps). Parts on a rail that is also selected ride with the rail; parts on a rail that stays slide along it. Delete removes the selection; the panel offers Lock all / Unlock all.
+- **Locked** placements can't be dragged, nudged or edited numerically until they're unlocked. They're still selectable, and a multi-select move or delete leaves them alone.
 
 ## Snapping
 
@@ -59,4 +61,5 @@ A part on a rail that hangs past the rail's end (after shortening the rail) gets
 ## Saving
 
 - Changes save on drop or on input blur, using optimistic updates. A failure rolls the change back and shows a toast.
-- Undo/redo works inside the editor session, through a command stack.
+- Every editor write goes through `POST …/cabinets/:id/layout/changes`: a list of create / update / delete changes applied in order in **one transaction** (all or nothing). It returns the whole layout. A create carries a negative `tempId` that later changes in the same batch can use as an id or `railId`.
+- **Undo / redo** (Ctrl + Z, Ctrl + Y or Ctrl + Shift + Z, and toolbar buttons) work inside the editor session, up to 100 steps. Each step keeps the layout before and after it; undo / redo send the batch that turns the current layout into that state (`changesTo()` in `apps/web/src/features/layout/history.ts`). Re-created parts get new ids, and every step is renamed to them. Held-down arrow nudges of the same selection merge into one step. Leaving the page forgets the history.
