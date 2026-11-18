@@ -1,6 +1,7 @@
 import {
   LayoutDetail,
   Placement,
+  withPatch,
   type CreatePlacementInput,
   type UpdatePlacementInput,
 } from "@cabinet-planner/shared";
@@ -90,11 +91,12 @@ export const useUpdatePlacement = (ref: RevisionRef, cabinetId: number) =>
     cabinetId,
     ({ id, patch }: { id: number; patch: UpdatePlacementInput }) =>
       api.patch(`${apiBase(ref, cabinetId)}/placements/${id}`, patch, Placement),
+    // withPatch: a moved rail carries its parts, exactly as the API does.
     (layout, { id, patch }) => ({
       ...layout,
-      placements: layout.placements
-        .map((p) => (p.id === id ? { ...p, ...patch } : p))
-        .sort((a, b) => a.zIndex - b.zIndex || a.id - b.id),
+      placements: withPatch(layout.placements, id, patch).sort(
+        (a, b) => a.zIndex - b.zIndex || a.id - b.id,
+      ),
     }),
     replace,
   );
@@ -104,5 +106,11 @@ export const useDeletePlacement = (ref: RevisionRef, cabinetId: number) =>
     ref,
     cabinetId,
     (id: number) => api.delete(`${apiBase(ref, cabinetId)}/placements/${id}`),
-    (layout, id) => ({ ...layout, placements: layout.placements.filter((p) => p.id !== id) }),
+    // Parts on a deleted rail stay where they are, off the rail.
+    (layout, id) => ({
+      ...layout,
+      placements: layout.placements
+        .filter((p) => p.id !== id)
+        .map((p) => (p.railId === id ? { ...p, railId: null } : p)),
+    }),
   );

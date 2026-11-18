@@ -66,24 +66,33 @@ export const Placement = z.object({
 });
 export type Placement = z.infer<typeof Placement>;
 
-/** POST …/cabinets/:cabinetId/placements. A rail or gutter without a length gets its stock length. */
+/**
+ * POST …/cabinets/:cabinetId/placements. A rail or gutter without a length gets its stock length.
+ * `railId`: the rail placement it's dropped onto (rail-mounted parts, same rotation as the rail).
+ */
 export const CreatePlacementInput = z.object({
   componentId: Id,
   x: Units,
   y: Units,
   rotation: Rotation.default(0),
   length: PositiveUnits.nullable().default(null),
+  railId: Id.nullable().default(null),
   tag: Tag.default(null),
 });
 export type CreatePlacementInput = z.infer<typeof CreatePlacementInput>;
 
-/** PATCH …/placements/:placementId. A locked placement only accepts `locked`. */
+/**
+ * PATCH …/placements/:placementId. A locked placement only accepts `locked`.
+ * Moving or turning a rail carries the parts on it (`withPatch` in layout.ts).
+ */
 export const UpdatePlacementInput = z
   .strictObject({
     x: Units,
     y: Units,
     rotation: Rotation,
     length: PositiveUnits,
+    /** Snap onto a rail (rail-mounted parts, same rotation as the rail), or null to leave it. */
+    railId: Id.nullable(),
     locked: z.boolean(),
     tag: Tag,
     zIndex: z.number().int(),

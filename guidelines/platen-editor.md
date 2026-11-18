@@ -21,18 +21,21 @@
 
 ## Snapping
 
-No tolerance setting (owner, 2026-11-17): snapping is about parts on a rail sitting **side by side**. A fixed internal tolerance decides when something is "near". Alt while dragging turns snapping off.
+No tolerance setting (owner, 2026-11-17): snapping is about parts on a rail sitting **side by side**. "Near" is a fixed 8 screen pixels. Alt while dragging turns all snapping off (and takes a part off its rail). The code is `snapMove()` in `packages/shared/src/snap.ts`; the rail geometry and `withPatch()` are in `layout.ts`, shared by the editor and the API.
 
-1. **Rail snap**, for `rail_mount` components near a RAIL placement:
-   - Vertically, the component's top edge moves to `rail.y − rail_edge_offset`, so the rail's top edge lands where the datasheet says.
-   - Horizontally, the component slides freely along the rail, clamped to the rail's length.
-   - `rail_id` is set; dragging it off the rail clears it.
-   - When the rail moves, every component on it moves with it.
-2. **Component snap:** edges align to the nearby edges of other placements (left/right/top/bottom, plus centres).
-   - **Stackable** components on the same rail butt up against each other with no gap.
-3. **Grid snap**: 5 mm, switched on or off in the toolbar. It applies only when nothing above snapped.
+1. **Rail snap**, for `rail_mount` components whose centre is over a RAIL placement (within half the part's own size across the rail):
+   - **The part follows the rail's orientation** (owner, 2026-11-17): 0° on a horizontal rail, 90° on a vertical one. Its width always runs along the rail.
+   - Horizontal rail: the part's top edge goes to `rail.y − rail_edge_offset`, so the rail's top edge lands where the datasheet says. Vertical rail (part turned 90° clockwise, top edge facing right): the part's right edge is `rail_edge_offset` right of the rail's right edge.
+   - No `rail_edge_offset` in the catalog: the part is centred on the rail.
+   - It slides along the rail (on the grid when grid snap is on), clamped to the rail's length.
+   - `rail_id` is set; dragging it clearly away clears it. "Take off" in the properties panel clears it without moving the part.
+   - **Stackable** parts on the same rail butt up against each other with no gap.
+   - Dropping a part from the list onto a rail snaps it the same way. Typed X / Y on a part on a rail keeps it on the rail (clamped).
+2. **The rail carries its parts**: moving, turning or resizing a rail moves the parts on it, keeping their distance along it. Locked parts come along too (they're locked to the rail). A part on a rail can't be turned on its own. Deleting the rail leaves its parts where they are, off the rail.
+3. **Alignment:** other drags line up left / centre / right and top / centre / bottom with nearby parts and the platen edges, with a pink guide line.
+4. **Grid snap**: 5 mm, switched on or off in the toolbar. It applies only on an axis where nothing above snapped. Typed values are never rounded to the grid.
 
-Built so far: grid snap only (part 1). Rail and component snap come in part 2.
+A part on a rail that hangs past the rail's end (after shortening the rail) gets a warning.
 
 ## Terminal strips (planned, owner request 2026-11-17)
 

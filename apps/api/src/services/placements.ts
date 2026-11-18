@@ -2,7 +2,9 @@ import {
   isProfile,
   PlacementSnapshot,
   stockLength,
+  withPatch,
   type CreatePlacementInput,
+  type PlacedGeometry,
   type PlacedPart,
   type Rotation,
   type UpdatePlacementInput,
@@ -100,6 +102,64 @@ async function findPlacement(tx: Tx, platenId: number, placementId: number) {
   return placement;
 }
 
+/**
+ * A part snapped to a rail: the rail is a RAIL placement on the same platen, the part mounts
+ * on rails, and it turns with the rail (0° horizontal, 90° vertical).
+ */
+async function assertRailFits(
+  tx: Tx,
+  platenId: number,
+  component: Component,
+  railId: number,
+  rotation: number,
+) {
+  if (!component.railMount || isProfile(component.kind)) {
+    throw new HttpError(400, "Only rail-mounted parts can sit on a rail");
+  }
+  const rail = await tx.placement.findUnique({
+    where: { id: railId },
+    include: { component: true },
+  });
+  if (rail?.platenId !== platenId || rail.component.kind !== "RAIL") {
+    throw new HttpError(400, "That rail isn't on this platen");
+  }
+  if (rail.rotation !== rotation) {
+    throw new HttpError(400, "A part on a rail turns with the rail");
+  }
+}
+
+const geometry = (p: Placement & { component: Component }): PlacedGeometry => ({
+  id: p.id,
+  x: p.x,
+  y: p.y,
+  rotation: p.rotation as Rotation,
+  length: p.length,
+  railId: p.railId,
+  part: livePart(p.component),
+});
+
+/** Moving, turning or resizing a rail carries the parts on it (withPatch in packages/shared). */
+async function carryRailParts(
+  tx: Tx,
+  platenId: number,
+  railId: number,
+  patch: UpdatePlacementInput,
+) {
+  const all = await tx.placement.findMany({ where: { platenId }, include: { component: true } });
+  const before = all.map(geometry);
+  const after = withPatch(before, railId, patch);
+  for (const [i, p] of after.entries()) {
+    const old = before[i]!;
+    if (p.id === railId || p.railId !== railId) continue;
+    if (p.x !== old.x || p.y !== old.y || p.rotation !== old.rotation) {
+      await tx.placement.update({
+        where: { id: p.id },
+        data: { x: p.x, y: p.y, rotation: p.rotation },
+      });
+    }
+  }
+}
+
 /** Only rails and gutters have a length. */
 function assertLengthFits(component: Component, length: number | null | undefined) {
   if (length != null && !isProfile(component.kind)) {
@@ -119,6 +179,9 @@ export async function createPlacement(
     const component = await tx.component.findUnique({ where: { id: input.componentId } });
     if (!component?.active) throw new HttpError(400, "Unknown or inactive component");
     assertLengthFits(component, input.length);
+    if (input.railId !== null) {
+      await assertRailFits(tx, platen.id, component, input.railId, input.rotation);
+    }
 
     // New parts go on top.
     const top = await tx.placement.aggregate({
@@ -133,6 +196,7 @@ export async function createPlacement(
         y: input.y,
         rotation: input.rotation,
         length: isProfile(component.kind) ? (input.length ?? stockLength(component)) : null,
+        railId: input.railId,
         tag: input.tag,
         zIndex: (top._max.zIndex ?? -1) + 1,
       },
@@ -142,7 +206,10 @@ export async function createPlacement(
   });
 }
 
-/** Moves, rotates, resizes, retags or (un)locks. A locked placement only accepts `locked`. */
+/**
+ * Moves, rotates, resizes, retags, (un)locks or snaps onto a rail. A locked placement only
+ * accepts `locked`. A rail carries the parts on it, locked ones too (they're locked to it).
+ */
 export async function updatePlacement(
   db: PrismaClient,
   ref: RevisionRef,
@@ -159,6 +226,19 @@ export async function updatePlacement(
       throw new HttpError(409, "This part is locked. Unlock it first.");
     }
     assertLengthFits(current.component, patch.length);
+    const railId = patch.railId === undefined ? current.railId : patch.railId;
+    if (railId !== null && (patch.railId !== undefined || patch.rotation !== undefined)) {
+      await assertRailFits(
+        tx,
+        platen.id,
+        current.component,
+        railId,
+        patch.rotation ?? current.rotation,
+      );
+    }
+    if (current.component.kind === "RAIL") {
+      await carryRailParts(tx, platen.id, placementId, patch);
+    }
     const updated = await tx.placement.update({
       where: { id: placementId },
       data: patch,

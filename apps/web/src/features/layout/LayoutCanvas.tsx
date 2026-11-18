@@ -1,11 +1,16 @@
 import {
+  freeMove,
   hasWarning,
   isProfile,
   placementBox,
+  snapMove,
   snapToGrid,
   toMm,
+  withPatch,
+  type Guide,
   type LayoutWarnings,
   type Placement,
+  type UpdatePlacementInput,
 } from "@cabinet-planner/shared";
 import { Box, useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
@@ -14,6 +19,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useRef, useState, type DragEvent } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { kindColors } from "./colors";
+import { changedFields, type MovePatch } from "./moves";
 
 /** MIME type of a catalog part dragged from the part list. */
 export const PART_DRAG_TYPE = "application/x-cabinet-planner-component";
@@ -23,6 +29,17 @@ export const GRID = 50;
 /** Shortest length a rail or gutter can be dragged to: 10 mm. */
 const MIN_LENGTH = 100;
 const PAD = 24;
+/** "Near" for snapping, in screen pixels (no setting: guidelines/platen-editor.md). */
+const SNAP_PX = 8;
+
+interface Drag {
+  id: number;
+  move: MovePatch;
+  guides: Guide[];
+  /** The placements when the drag started; the drag preview ends once they change. */
+  base: Placement[];
+  dropped: boolean;
+}
 
 interface View {
   scale: number; // px per 0.1 mm
@@ -40,7 +57,8 @@ interface Props {
   gridSnap: boolean;
   /** Bumped by the "Fit" button to reset zoom and pan. */
   fitSignal: number;
-  onMove: (id: number, x: number, y: number) => void;
+  /** A drag ended: the fields that changed (position, and rotation / rail when snapped). */
+  onMove: (id: number, patch: UpdatePlacementInput) => void;
   onLength: (id: number, length: number) => void;
   /** A part was dropped from the list at this point (platen units). */
   onDropPart: (componentId: number, at: { x: number; y: number }) => void;
@@ -49,7 +67,8 @@ interface Props {
 /**
  * The platen to scale. Stage coordinates are platen units (0.1 mm, top-left origin, +y down);
  * the view transform does the zoom and pan. Wheel zooms around the pointer, dragging the
- * background pans, parts drag with grid snap (Alt turns it off).
+ * background pans. Dragged parts snap (snapMove: rails, side by side, alignment, grid); Alt
+ * turns snapping off. Parts on a rail follow it while it's dragged.
  */
 export function LayoutCanvas(props: Props) {
   const { platen, placements, warnings, selectedId, onSelect, editable, gridSnap } = props;
@@ -83,6 +102,45 @@ export function LayoutCanvas(props: Props) {
   const px = view ? 1 / view.scale : 1; // one screen pixel in platen units
   const snap = (v: number, alt: boolean) =>
     gridSnap && !alt ? snapToGrid(v, GRID) : Math.round(v);
+
+  // While dragging, the layout is drawn with the drag applied (parts on a dragged rail come
+  // along). After the drop the preview stays until the saved change shows up, so nothing jumps.
+  const [drag, setDrag] = useState<Drag | null>(null);
+  if (drag?.dropped && drag.base !== placements) setDrag(null);
+  const shown = drag ? withPatch(placements, drag.id, drag.move) : placements;
+
+  const dragMove = (p: Placement, node: Konva.Node, alt: boolean) => {
+    const box = placementBox(shown.find((s) => s.id === p.id) ?? p); // as drawn now
+    const centre = { x: node.x() + box.width / 2, y: node.y() + box.height / 2 };
+    const r = alt
+      ? freeMove(p, centre)
+      : snapMove(p, centre, placements, {
+          tolerance: SNAP_PX * px,
+          grid: gridSnap ? GRID : null,
+          platen,
+        });
+    node.position({ x: r.x, y: r.y });
+    setDrag({
+      id: p.id,
+      move: {
+        x: r.x,
+        y: r.y,
+        rotation: r.rotation,
+        railId: p.part.railMount ? r.railId : p.railId,
+      },
+      guides: r.guides,
+      base: drag?.base ?? placements,
+      dropped: false,
+    });
+  };
+
+  const dragEnd = (p: Placement) => {
+    if (drag?.id !== p.id) return;
+    const patch = changedFields(p, drag.move);
+    if (Object.keys(patch).length === 0) return setDrag(null);
+    props.onMove(p.id, patch);
+    setDrag({ ...drag, guides: [], dropped: true });
+  };
 
   const onWheel = (e: KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -135,9 +193,10 @@ export function LayoutCanvas(props: Props) {
 
   // Rails and gutters behind the other parts (guidelines/platen-editor.md layers).
   const ordered = [
-    ...placements.filter((p) => isProfile(p.part.kind)),
-    ...placements.filter((p) => !isProfile(p.part.kind)),
+    ...shown.filter((p) => isProfile(p.part.kind)),
+    ...shown.filter((p) => !isProfile(p.part.kind)),
   ];
+  const original = (id: number) => placements.find((p) => p.id === id);
 
   return (
     <Box
@@ -203,8 +262,21 @@ export function LayoutCanvas(props: Props) {
                 colors={colors}
                 snap={snap}
                 onSelect={() => onSelect(p.id)}
-                onMove={(x, y) => props.onMove(p.id, x, y)}
+                onDragMove={(node, alt) => dragMove(original(p.id) ?? p, node, alt)}
+                onDragEnd={() => dragEnd(original(p.id) ?? p)}
                 onLength={(length) => props.onLength(p.id, length)}
+              />
+            ))}
+            {drag?.guides.map((g) => (
+              <Line
+                key={`${g.axis}${g.at}`}
+                points={
+                  g.axis === "x" ? [g.at, 0, g.at, platen.height] : [0, g.at, platen.width, g.at]
+                }
+                stroke={colors.guide}
+                strokeWidth={px}
+                dash={[4 * px, 3 * px]}
+                listening={false}
               />
             ))}
           </Layer>
@@ -223,7 +295,8 @@ function PlacedShape({
   colors,
   snap,
   onSelect,
-  onMove,
+  onDragMove,
+  onDragEnd,
   onLength,
 }: {
   placement: Placement;
@@ -234,7 +307,8 @@ function PlacedShape({
   colors: ReturnType<typeof kindColors>;
   snap: (v: number, alt: boolean) => number;
   onSelect: () => void;
-  onMove: (x: number, y: number) => void;
+  onDragMove: (node: Konva.Node, alt: boolean) => void;
+  onDragEnd: () => void;
   onLength: (length: number) => void;
 }) {
   const box = placementBox(p);
@@ -264,14 +338,10 @@ function PlacedShape({
           onSelect();
         }}
         onTap={onSelect}
-        onDragMove={(e) => {
-          const alt = e.evt.altKey;
-          e.target.x(snap(e.target.x(), alt));
-          e.target.y(snap(e.target.y(), alt));
-        }}
+        onDragMove={(e) => onDragMove(e.target, e.evt.altKey)}
         onDragEnd={(e) => {
           e.cancelBubble = true; // not a stage pan
-          onMove(Math.round(e.target.x()), Math.round(e.target.y()));
+          onDragEnd();
         }}
         onMouseEnter={(e) => draggable && setCursor(e, "move")}
         onMouseLeave={(e) => setCursor(e, "default")}

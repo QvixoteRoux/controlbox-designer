@@ -1,4 +1,5 @@
 import {
+  hasWarning,
   isProfile,
   rotateInPlace,
   ROTATIONS,
@@ -38,6 +39,8 @@ interface Props {
   editable: boolean;
   topZ: number;
   onChange: (patch: UpdatePlacementInput) => void;
+  /** Typed X / Y, snapped like a drag (a part on a rail stays on it). */
+  onMoveTo: (to: { x?: number; y?: number }) => void;
   onDelete: () => void;
 }
 
@@ -49,12 +52,14 @@ export function PropertiesPanel({
   editable,
   topZ,
   onChange,
+  onMoveTo,
   onDelete,
 }: Props) {
   const canEdit = editable && !p.locked;
   const profile = isProfile(p.part.kind);
   const stock = stockLength(p.part);
   const levels = terminalLevels(p.part);
+  const onRail = p.railId !== null;
 
   return (
     <Stack gap="sm">
@@ -75,7 +80,7 @@ export function PropertiesPanel({
         )}
       </div>
 
-      {warnings && (warnings.outside || warnings.overlaps.length > 0 || warnings.tooLong) && (
+      {hasWarning(warnings) && warnings && (
         <Alert color="red" p="xs">
           <List size="xs">
             {warnings.outside && <List.Item>Sticks out past the platen</List.Item>}
@@ -85,6 +90,7 @@ export function PropertiesPanel({
             {warnings.tooLong && stock !== null && (
               <List.Item>Longer than the {formatMm(stock)} stock length</List.Item>
             )}
+            {warnings.offRail && <List.Item>Hangs past the end of its rail</List.Item>}
           </List>
         </Alert>
       )}
@@ -98,12 +104,22 @@ export function PropertiesPanel({
       />
 
       <SimpleGrid cols={2} spacing="xs">
-        <MmField label="X" value={p.x} disabled={!canEdit} onCommit={(x) => onChange({ x })} />
-        <MmField label="Y" value={p.y} disabled={!canEdit} onCommit={(y) => onChange({ y })} />
+        <MmField label="X" value={p.x} disabled={!canEdit} onCommit={(x) => onMoveTo({ x })} />
+        <MmField label="Y" value={p.y} disabled={!canEdit} onCommit={(y) => onMoveTo({ y })} />
       </SimpleGrid>
       <Text size="xs" c="dimmed" mt={-6}>
         Top-left corner, from the platen&apos;s top-left. Y down.
       </Text>
+      {onRail && (
+        <Group gap="xs" justify="space-between">
+          <Text size="xs">On rail {nameOf(p.railId ?? 0)}: slides along it and moves with it.</Text>
+          {canEdit && (
+            <Button size="compact-xs" variant="subtle" onClick={() => onChange({ railId: null })}>
+              Take off
+            </Button>
+          )}
+        </Group>
+      )}
 
       {profile && p.length !== null && (
         <MmField
@@ -122,7 +138,7 @@ export function PropertiesPanel({
         <SegmentedControl
           size="xs"
           fullWidth
-          disabled={!canEdit}
+          disabled={!canEdit || onRail}
           data={ROTATIONS.map((r) => ({
             value: String(r),
             label: profile ? (r === 0 ? "0° ↔ horizontal" : "90° ↕ vertical") : `${r}°`,
@@ -133,6 +149,11 @@ export function PropertiesPanel({
             onChange({ rotation, ...rotateInPlace(p, rotation) });
           }}
         />
+        {onRail && (
+          <Text size="xs" c="dimmed" mt={2}>
+            Turns with its rail.
+          </Text>
+        )}
       </div>
 
       <Switch

@@ -102,6 +102,7 @@ Each placement stores x, y, rotation, an optional length (gutter and rail only),
 - API: `GET …/cabinets/:id/layout` (platen + placements, drawn from the snapshot once released), `POST …/placements`, `PATCH …/placements/:id`, `DELETE …/placements/:id`. Writes need `projects` and a WORKING revision, and the cabinet's platen switched on.
 - A new placement goes on top (highest z-order). A rail or gutter without a length gets its stock length; other kinds can't have a length.
 - A **locked** placement only accepts unlocking (409 otherwise, delete included).
+- `rail_id` (create and patch): a RAIL placement on the same platen, only for rail-mounted parts, and the part's rotation must match the rail's (400 otherwise). Moving, turning or resizing a rail updates the parts on it in the same transaction (`withPatch()` in `packages/shared/src/layout.ts`). Deleting a rail sets its parts' `rail_id` to NULL (FK `ON DELETE SET NULL`).
 
 **Planned with the platen editor** (owner request, 2026-11-17; columns added then): terminal strips. See `guidelines/platen-editor.md`.
 

@@ -23,6 +23,7 @@ export function kindColors(theme: MantineTheme, dark: boolean) {
     text: dark ? c.dark[0] : c.gray[9],
     warn: c.red[6],
     selected: c.blue[5],
+    guide: c.pink[6],
     background: dark ? c.dark[7] : c.gray[2],
   };
 }

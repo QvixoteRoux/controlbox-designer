@@ -1,4 +1,4 @@
-import { ApiErrorBody, LayoutDetail, Placement } from "@cabinet-planner/shared";
+import { ApiErrorBody, LayoutDetail, Placement, positionOnRail } from "@cabinet-planner/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addUser, buildTestApp, builtInRail, db, login, resetDb } from "../../test/helpers.js";
 import { releaseRevision } from "../services/revisions.js";
@@ -198,6 +198,71 @@ describe("editing placements", () => {
     expect(
       (await call(designer, "PATCH", `${other}/placements/${p.id}`, { x: 1 })).statusCode,
     ).toBe(404);
+  });
+});
+
+describe("parts on rails", () => {
+  /** A 300 mm rail from (50, 100) mm and a contactor 30 mm along it. */
+  async function railWithPart() {
+    const r = await place({ componentId: rail.id, x: 500, y: 1000, length: 3000 });
+    const k = await place({ componentId: contactor.id, x: 800, y: 800, railId: r.id });
+    return { r, k };
+  }
+  const byId = async (id: number) => (await layout()).placements.find((p) => p.id === id);
+
+  it("snaps a rail-mounted part onto a rail of this platen", async () => {
+    const { r, k } = await railWithPart();
+    expect(k.railId).toBe(r.id);
+
+    const off = await call(designer, "PATCH", `${cab}/placements/${k.id}`, { railId: null });
+    expect(Placement.parse(off.json()).railId).toBeNull();
+  });
+
+  it("refuses rails that aren't rails, parts that don't mount on rails, and the wrong turn", async () => {
+    const { r, k } = await railWithPart();
+    const button = await db.component.create({
+      data: { manufacturer: "Acme", partNumber: "PB", height: 300, width: 300, depth: 300 },
+    });
+    const bad = [
+      { componentId: contactor.id, x: 0, y: 0, railId: k.id }, // not a rail
+      { componentId: button.id, x: 0, y: 0, railId: r.id }, // not rail-mounted
+      { componentId: contactor.id, x: 0, y: 0, rotation: 90, railId: r.id }, // rail is horizontal
+      { componentId: contactor.id, x: 0, y: 0, railId: 99999 },
+    ];
+    for (const body of bad) {
+      expect((await call(designer, "POST", `${cab}/placements`, body)).statusCode).toBe(400);
+    }
+    const turn = await call(designer, "PATCH", `${cab}/placements/${k.id}`, { rotation: 90 });
+    expect(turn.statusCode).toBe(400);
+  });
+
+  it("moves the parts with their rail, locked ones too", async () => {
+    const { r, k } = await railWithPart();
+    await call(designer, "PATCH", `${cab}/placements/${k.id}`, { locked: true });
+
+    const res = await call(designer, "PATCH", `${cab}/placements/${r.id}`, { x: 700, y: 2000 });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(await byId(k.id)).toMatchObject({ x: 1000, y: 1800, rotation: 0, railId: r.id });
+  });
+
+  it("turns the parts when the rail turns vertical", async () => {
+    const { r, k } = await railWithPart();
+    const res = await call(designer, "PATCH", `${cab}/placements/${r.id}`, {
+      rotation: 90,
+      x: 1000,
+      y: 500,
+    });
+    const turned = Placement.parse(res.json());
+    expect(await byId(k.id)).toMatchObject({
+      ...positionOnRail(turned, (await byId(k.id))!.part, 300),
+      rotation: 90,
+    });
+  });
+
+  it("lets go of the parts when the rail is deleted", async () => {
+    const { r, k } = await railWithPart();
+    expect((await call(designer, "DELETE", `${cab}/placements/${r.id}`)).statusCode).toBe(204);
+    expect(await byId(k.id)).toMatchObject({ railId: null, x: 800, y: 800 });
   });
 });
 

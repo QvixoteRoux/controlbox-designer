@@ -1,13 +1,14 @@
 import {
   can,
   CabinetParams,
-  footprint,
+  centreOf,
   formatRev,
   hasWarning,
   layoutWarnings,
-  snapToGrid,
+  snapMove,
   type ComponentListItem,
   type LayoutWarnings,
+  type Placement,
 } from "@cabinet-planner/shared";
 import {
   Alert,
@@ -34,6 +35,7 @@ import { cabinetRoute, revisionPath } from "../cabinets/api";
 import { StatusBadge } from "../projects/RevisionBadge";
 import { layoutQuery, useCreatePlacement, useDeletePlacement, useUpdatePlacement } from "./api";
 import { GRID, LayoutCanvas } from "./LayoutCanvas";
+import { changedFields } from "./moves";
 import { PartList } from "./PartList";
 import { PropertiesPanel } from "./PropertiesPanel";
 
@@ -65,21 +67,52 @@ export function LayoutPage() {
     return p ? (p.tag ?? p.part.partNumber) : `#${id}`;
   };
 
-  /** Adds a part centred on a point of the platen (snapped to the grid). */
+  /** Adds a part centred on a point of the platen: onto a rail there, else on the grid. */
   const addAt = (component: ComponentListItem, at: { x: number; y: number }) => {
-    const size = footprint(component, null);
-    const corner = (v: number) => (gridSnap ? snapToGrid(v, GRID) : Math.round(v));
+    if (!platen) return;
+    const probe = {
+      id: 0,
+      x: 0,
+      y: 0,
+      rotation: 0 as const,
+      length: null,
+      railId: null,
+      part: component,
+    };
+    const r = snapMove(probe, at, placements, {
+      tolerance: 0,
+      grid: gridSnap ? GRID : null,
+      platen,
+    });
     create.mutate(
       {
         componentId: component.id,
-        x: corner(at.x - size.width / 2),
-        y: corner(at.y - size.height / 2),
-        rotation: 0,
+        x: r.x,
+        y: r.y,
+        rotation: r.rotation,
         length: null,
+        railId: r.railId,
         tag: null,
       },
       { onSuccess: (p) => setSelectedId(p.id) },
     );
+  };
+
+  /** Typed X / Y: same snapping as a drag, minus alignment and grid (exact values). */
+  const moveTo = (p: Placement, to: { x?: number; y?: number }) => {
+    if (!platen) return;
+    const r = snapMove(p, centreOf({ ...p, ...to }), placements, {
+      tolerance: 0,
+      grid: null,
+      platen,
+    });
+    const patch = changedFields(p, {
+      x: r.x,
+      y: r.y,
+      rotation: r.rotation,
+      railId: p.part.railMount ? r.railId : p.railId,
+    });
+    if (Object.keys(patch).length > 0) update.mutate({ id: p.id, patch });
   };
   const componentById = (id: number) => components.data?.find((c) => c.id === id);
 
@@ -163,7 +196,7 @@ export function LayoutPage() {
               editable={editable}
               gridSnap={gridSnap}
               fitSignal={fitSignal}
-              onMove={(id, x, y) => update.mutate({ id, patch: { x, y } })}
+              onMove={(id, patch) => update.mutate({ id, patch })}
               onLength={(id, length) => update.mutate({ id, patch: { length } })}
               onDropPart={(componentId, at) => {
                 const c = componentById(componentId);
@@ -183,6 +216,7 @@ export function LayoutPage() {
                   editable={editable}
                   topZ={topZ}
                   onChange={(patch) => update.mutate({ id: selected.id, patch })}
+                  onMoveTo={(to) => moveTo(selected, to)}
                   onDelete={() => {
                     remove.mutate(selected.id);
                     setSelectedId(null);
@@ -191,7 +225,7 @@ export function LayoutPage() {
               ) : (
                 <Text size="sm" c="dimmed">
                   {editable
-                    ? "Drag a part from the list onto the platen, or click a part to edit it. Scroll to zoom, drag the background to pan, hold Alt while dragging to skip the grid."
+                    ? "Drag a part from the list onto the platen, or click a part to edit it. Rail-mounted parts snap onto rails and line up side by side; other parts line up with their neighbours. Hold Alt while dragging to turn snapping off. Scroll to zoom, drag the background to pan."
                     : "Click a part to see its details. Scroll to zoom, drag the background to pan."}
                 </Text>
               )}

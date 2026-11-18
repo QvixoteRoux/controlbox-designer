@@ -12,6 +12,10 @@ export interface PartGeometry {
   width: number;
   height: number;
   railMount: boolean;
+  /** From the part's top edge to the rail's top edge (rail-mounted parts). */
+  railEdgeOffset?: number | null;
+  /** Butts up against its stackable neighbours on a rail. */
+  stackable?: boolean;
   attributes: unknown;
 }
 
@@ -21,6 +25,8 @@ export interface PlacedGeometry {
   y: number;
   rotation: Rotation;
   length: number | null;
+  /** The rail placement this part is snapped to. */
+  railId?: number | null;
   part: PartGeometry;
 }
 
@@ -64,6 +70,89 @@ export function rotateInPlace(p: Omit<PlacedGeometry, "id">, rotation: Rotation)
   };
 }
 
+// ── Rails ──
+// A rail-mounted part sits on a rail at a distance `along` from the rail's start (its left end
+// when horizontal, its top end when vertical) and turns with the rail: 0° on a horizontal
+// rail, 90° on a vertical one. The part's width always runs along the rail.
+
+export function railFrame(rail: Omit<PlacedGeometry, "id">) {
+  const box = placementBox(rail);
+  const vertical = rail.rotation === 90;
+  return {
+    box,
+    vertical,
+    start: vertical ? box.y : box.x,
+    length: vertical ? box.height : box.width,
+  };
+}
+
+/** Rail edge offset, or centred on the rail when the catalog doesn't give one. */
+const edgeOffset = (part: PartGeometry, railWidth: number) =>
+  part.railEdgeOffset ?? Math.round((part.height - railWidth) / 2);
+
+/**
+ * Where a rail-mounted part goes on a rail, `along` from the rail's start. Horizontal: the
+ * rail's top edge is `railEdgeOffset` below the part's top edge. Vertical (the part turned
+ * 90° clockwise, so its top edge faces right): the rail's right edge is `railEdgeOffset`
+ * left of the part's right edge.
+ */
+export function positionOnRail(
+  rail: Omit<PlacedGeometry, "id">,
+  part: PartGeometry,
+  along: number,
+): { x: number; y: number; rotation: Rotation } {
+  const { box, vertical } = railFrame(rail);
+  if (!vertical) {
+    return { x: box.x + along, y: box.y - edgeOffset(part, box.height), rotation: 0 };
+  }
+  const size = rotatedSize(part, null, 90);
+  return {
+    x: box.x + box.width + edgeOffset(part, box.width) - size.width,
+    y: box.y + along,
+    rotation: 90,
+  };
+}
+
+/** How far along the rail a part's leading edge (left or top) is. */
+export function alongRail(rail: Omit<PlacedGeometry, "id">, p: { x: number; y: number }) {
+  const { box, vertical } = railFrame(rail);
+  return vertical ? p.y - box.y : p.x - box.x;
+}
+
+/** True when a part is no longer where its rail puts it, or hangs past the rail's ends. */
+export function offItsRail(p: PlacedGeometry, rail: PlacedGeometry) {
+  const along = alongRail(rail, p);
+  const at = positionOnRail(rail, p.part, along);
+  const misplaced = at.x !== p.x || at.y !== p.y || at.rotation !== p.rotation;
+  return misplaced || along < 0 || along + p.part.width > railFrame(rail).length;
+}
+
+/**
+ * Applies a change to one placement. When it's a rail that moves, turns or gets resized,
+ * the parts on it come along: each keeps its distance along the rail and turns with it.
+ * The editor (live while dragging, and optimistically) and the API use this same function.
+ */
+export function withPatch<T extends PlacedGeometry>(
+  placements: T[],
+  id: number,
+  patch: Partial<Omit<T, "id" | "part">>,
+): T[] {
+  const before = placements.find((p) => p.id === id);
+  if (!before) return placements;
+  const after: T = { ...before, ...patch };
+  const carried = new Map<number, { x: number; y: number; rotation: Rotation }>();
+  if (before.part.kind === "RAIL") {
+    for (const p of placements) {
+      if (p.railId === id) carried.set(p.id, positionOnRail(after, p.part, alongRail(before, p)));
+    }
+  }
+  return placements.map((p) => {
+    if (p.id === id) return after;
+    const moved = carried.get(p.id);
+    return moved ? { ...p, ...moved } : p;
+  });
+}
+
 /** True when two boxes overlap (touching edges don't count). */
 export const boxesOverlap = (a: Box, b: Box) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
@@ -82,10 +171,12 @@ export interface LayoutWarnings {
   overlaps: number[];
   /** A rail or gutter longer than its catalog stock length. */
   tooLong: boolean;
+  /** A part on a rail that hangs past the rail's ends (e.g. after the rail was shortened). */
+  offRail: boolean;
 }
 
 export const hasWarning = (w: LayoutWarnings | undefined) =>
-  w !== undefined && (w.outside || w.overlaps.length > 0 || w.tooLong);
+  w !== undefined && (w.outside || w.overlaps.length > 0 || w.tooLong || w.offRail);
 
 /** Warnings per placement id. They're shown, never enforced. */
 export function layoutWarnings(
@@ -93,9 +184,11 @@ export function layoutWarnings(
   platen: { width: number; height: number },
 ): Map<number, LayoutWarnings> {
   const boxes = placements.map((p) => ({ p, box: placementBox(p) }));
+  const byId = new Map(placements.map((p) => [p.id, p]));
   const result = new Map<number, LayoutWarnings>();
   for (const { p, box } of boxes) {
     const stock = stockLength(p.part);
+    const rail = p.railId == null ? undefined : byId.get(p.railId);
     result.set(p.id, {
       outside: !boxInside(box, platen),
       overlaps: boxes
@@ -104,6 +197,7 @@ export function layoutWarnings(
         )
         .map((o) => o.p.id),
       tooLong: stock !== null && p.length !== null && p.length > stock,
+      offRail: rail !== undefined && offItsRail(p, rail),
     });
   }
   return result;
