@@ -72,7 +72,7 @@ describe("the component catalog", () => {
     });
     const ground = await add({ kind: "GROUND_TERMINAL", ...identity("PE-1"), ...box });
 
-    expect(terminal).toMatchObject({ railMount: true, stackable: true, attributes: { levels: 4 } });
+    expect(terminal).toMatchObject({ railMount: true, snappable: true, attributes: { levels: 4 } });
     expect(ground).toMatchObject({ railMount: true, attributes: {} });
 
     const fiveLevels = await call(catalog, "POST", "/api/components", {

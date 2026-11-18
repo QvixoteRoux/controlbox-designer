@@ -62,7 +62,7 @@ interface Values {
   depth: Num;
   railMount: boolean;
   railEdgeOffset: Num;
-  stackable: boolean;
+  snappable: boolean;
   attributes: { amperage: Num; poles: Num; levels: string; stockLength: Num };
 }
 
@@ -99,7 +99,7 @@ function toApi(v: Values) {
         phases: v.phases === "" ? null : Number(v.phases),
         railMount: v.railMount,
         railEdgeOffset: v.railMount && v.railEdgeOffset !== "" ? len(v.railEdgeOffset) : null,
-        stackable: v.stackable,
+        snappable: v.snappable,
         attributes:
           v.kind === "FUSE"
             ? {
@@ -114,7 +114,7 @@ function toApi(v: Values) {
         ...identity,
         ...box,
         railEdgeOffset: len(v.railEdgeOffset),
-        stackable: v.stackable,
+        snappable: v.snappable,
         attributes: v.kind === "TERMINAL_BLOCK" ? { levels: Number(v.attributes.levels) } : {},
       };
     case "GUTTER":
@@ -157,7 +157,7 @@ function initialValues(c: ComponentListItem | null): Values {
     depth: c && c.depth > 0 ? mm(c.depth) : "",
     railMount: c?.railMount ?? false,
     railEdgeOffset: mm(c?.railEdgeOffset),
-    stackable: c?.stackable ?? false,
+    snappable: c?.snappable ?? true,
     attributes: {
       amperage: attrs.amperage ?? "",
       poles: attrs.poles ?? "",
@@ -431,9 +431,9 @@ function ComponentForm({
             />
             <Switch
               mt="lg"
-              label="Stackable"
+              label="Snappable"
               description="Butts up against its neighbours on the rail"
-              {...form.getInputProps("stackable", { type: "checkbox" })}
+              {...form.getInputProps("snappable", { type: "checkbox" })}
             />
           </SimpleGrid>
         )}

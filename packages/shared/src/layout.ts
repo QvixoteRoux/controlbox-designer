@@ -14,8 +14,8 @@ export interface PartGeometry {
   railMount: boolean;
   /** From the part's top edge to the rail's top edge (rail-mounted parts). */
   railEdgeOffset?: number | null;
-  /** Butts up against its stackable neighbours on a rail. */
-  stackable?: boolean;
+  /** Butts up against its snappable neighbours on a rail. */
+  snappable?: boolean;
   attributes: unknown;
 }
 

@@ -313,7 +313,8 @@ model Component {
   railMount      Boolean       @default(false) @map("rail_mount")
   /// When rail_mount: distance from the component's top edge to the rail's top edge.
   railEdgeOffset Int?          @map("rail_edge_offset")
-  stackable      Boolean       @default(false)
+  /// Butts up flush against its snappable neighbours on a rail (side by side, no gap).
+  snappable      Boolean       @default(true)
   /// Kind-specific fields, validated by the Zod schema for that kind.
   attributes     Json          @default("{}")
   imagePath      String?       @map("image_path")

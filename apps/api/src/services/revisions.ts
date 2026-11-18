@@ -73,7 +73,7 @@ const componentSnapshot = (c: Component): ComponentSnapshot => ({
   depth: c.depth,
   railMount: c.railMount,
   railEdgeOffset: c.railEdgeOffset,
-  stackable: c.stackable,
+  snappable: c.snappable,
   attributes: c.attributes as ComponentSnapshot["attributes"],
   imagePath: c.imagePath,
 });

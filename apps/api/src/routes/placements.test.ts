@@ -284,7 +284,7 @@ describe("terminal strips", () => {
         depth: 465,
         railMount: true,
         railEdgeOffset: 125,
-        stackable: true,
+        snappable: true,
         attributes: kind === "TERMINAL_BLOCK" ? { levels } : {},
       },
     });

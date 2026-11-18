@@ -12,7 +12,7 @@ import {
 import type { Rotation } from "./schemas/placement.js";
 
 // Snapping while moving a part on the platen (guidelines/platen-editor.md, "Snapping").
-// In order: rail snap (rail-mounted parts, stacking side by side), then edge / centre
+// In order: rail snap (rail-mounted parts, snapping side by side), then edge / centre
 // alignment with other parts, then the grid. There's no tolerance setting: "near" is a few
 // screen pixels, passed in by the editor.
 
@@ -90,11 +90,11 @@ function snapToRail(
   const { rail } = best;
   const frame = railFrame(rail);
   let along = best.along;
-  let stacked = false;
-  if (moving.part.stackable) {
-    // Butt up against the nearest stackable neighbour on the same rail.
+  let butted = false;
+  if (moving.part.snappable) {
+    // Butt up against the nearest snappable neighbour on the same rail.
     let gap = tolerance;
-    for (const s of rest.filter((o) => o.railId === rail.id && o.part.stackable)) {
+    for (const s of rest.filter((o) => o.railId === rail.id && o.part.snappable)) {
       const start = alongRail(rail, s);
       const end = start + lengthAlongRail(s);
       for (const candidate of [end, start - len]) {
@@ -102,12 +102,12 @@ function snapToRail(
         if (d <= gap) {
           gap = d;
           along = candidate;
-          stacked = true;
+          butted = true;
         }
       }
     }
   }
-  if (!stacked && grid !== null) {
+  if (!butted && grid !== null) {
     along = snapToGrid(frame.start + along, grid) - frame.start;
   }
   along = Math.round(clamp(along, 0, frame.length - len));

@@ -131,12 +131,20 @@ describe("componentColumns", () => {
     ).toMatchObject({ width: 600, height: 0, depth: 0 });
   });
 
-  it("always mounts terminals on the rail, stackable by default", () => {
+  it("always mounts terminals on the rail, snappable by default", () => {
     expect(
       componentColumns(
         ComponentInput.parse({ kind: "GROUND_TERMINAL", ...identity, ...box, railEdgeOffset: 150 }),
       ),
-    ).toMatchObject({ railMount: true, railEdgeOffset: 150, stackable: true, inputVoltage: null });
+    ).toMatchObject({ railMount: true, railEdgeOffset: 150, snappable: true, inputVoltage: null });
+  });
+
+  it("makes every part snappable by default, unless switched off", () => {
+    const standard = { kind: "STANDARD", ...identity, ...box, railMount: true };
+    expect(componentColumns(ComponentInput.parse(standard)).snappable).toBe(true);
+    expect(
+      componentColumns(ComponentInput.parse({ ...standard, snappable: false })).snappable,
+    ).toBe(false);
   });
 
   it("drops electrical fields on kinds that don't use them", () => {

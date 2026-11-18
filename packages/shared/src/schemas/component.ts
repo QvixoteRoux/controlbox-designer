@@ -85,13 +85,13 @@ const mounting = {
   railMount: z.boolean().default(false),
   /** Distance from the component's top edge to the rail's top edge. Only when railMount. */
   railEdgeOffset: NonNegativeUnits.nullable().default(null),
-  stackable: z.boolean().default(false),
+  snappable: z.boolean().default(true),
 };
 
-/** Terminals always sit on a rail, so the rail offset is required and they stack by default. */
+/** Terminals always sit on a rail, so the rail offset is required and they snap side by side. */
 const terminalMounting = {
   railEdgeOffset: NonNegativeUnits,
-  stackable: z.boolean().default(true),
+  snappable: z.boolean().default(true),
 };
 
 const railOffsetOnlyWhenRailMounted = (c: {
@@ -181,7 +181,7 @@ export function componentColumns(input: ComponentInput) {
       phases: null,
       railMount: false,
       railEdgeOffset: null,
-      stackable: false,
+      snappable: false,
     };
   }
   const base = {
@@ -197,7 +197,7 @@ export function componentColumns(input: ComponentInput) {
     phases: null as 1 | 3 | null,
     railMount: false,
     railEdgeOffset: null as number | null,
-    stackable: false,
+    snappable: false,
   };
   switch (input.kind) {
     case "STANDARD":
@@ -211,7 +211,7 @@ export function componentColumns(input: ComponentInput) {
         depth: input.depth,
         railMount: input.railMount,
         railEdgeOffset: input.railMount ? input.railEdgeOffset : null,
-        stackable: input.stackable,
+        snappable: input.snappable,
       };
     case "TERMINAL_BLOCK":
     case "GROUND_TERMINAL":
@@ -222,7 +222,7 @@ export function componentColumns(input: ComponentInput) {
         depth: input.depth,
         railMount: true,
         railEdgeOffset: input.railEdgeOffset,
-        stackable: input.stackable,
+        snappable: input.snappable,
       };
     case "GUTTER":
       return { ...base, height: 0, width: input.width, depth: input.depth };
@@ -250,7 +250,7 @@ export const Component = z.object({
   depth: NonNegativeUnits,
   railMount: z.boolean(),
   railEdgeOffset: NonNegativeUnits.nullable(),
-  stackable: z.boolean(),
+  snappable: z.boolean(),
   attributes: z.record(z.string(), z.json()),
   imagePath: z.string().nullable(),
   active: z.boolean(),

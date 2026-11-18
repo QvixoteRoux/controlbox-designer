@@ -36,7 +36,7 @@ const livePart = (c: Component): PlacedPart => ({
   depth: c.depth,
   railMount: c.railMount,
   railEdgeOffset: c.railEdgeOffset,
-  stackable: c.stackable,
+  snappable: c.snappable,
   attributes: c.attributes as PlacedPart["attributes"],
   active: c.active,
 });

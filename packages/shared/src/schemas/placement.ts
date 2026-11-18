@@ -65,7 +65,7 @@ export const PlacedPart = z.object({
   depth: NonNegativeUnits,
   railMount: z.boolean(),
   railEdgeOffset: NonNegativeUnits.nullable(),
-  stackable: z.boolean(),
+  snappable: z.boolean(),
   attributes: z.record(z.string(), z.json()),
   /** false when the catalog row was deactivated after it was placed. */
   active: z.boolean(),

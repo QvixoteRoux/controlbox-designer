@@ -24,7 +24,7 @@ const contactor: PartGeometry = {
   height: 900,
   railMount: true,
   railEdgeOffset: 200,
-  stackable: true,
+  snappable: true,
   attributes: {},
 };
 const panel: PartGeometry = {
@@ -88,7 +88,7 @@ describe("snapMove onto rails", () => {
     expect(r.x).toBe(1000 + 5000 - 450);
   });
 
-  it("butts stackable parts up against each other", () => {
+  it("butts snappable parts up against each other", () => {
     const neighbour = place(11, contactor, 2000, 1800, { railId: H.id }); // along 1000…1450
     const r = snapMove(moving, { x: 1000 + 1470 + 225, y: 2250 }, [H, neighbour], options);
     expect(r).toMatchObject({ x: 2450, railId: H.id });
@@ -157,7 +157,7 @@ describe("terminal strips", () => {
     height: 600,
     railMount: true,
     railEdgeOffset: 125,
-    stackable: true,
+    snappable: true,
     attributes: { levels: 1 },
   };
 
