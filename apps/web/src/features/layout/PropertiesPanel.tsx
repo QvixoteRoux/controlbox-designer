@@ -4,6 +4,7 @@ import {
   hasWarning,
   isProfile,
   isStrip,
+  isTerminalKind,
   lengthAlongRail,
   MAX_STRIP_COUNT,
   rotateInPlace,
@@ -116,7 +117,7 @@ export function PropertiesPanel({
         onCommit={(tag) => onChange({ tag })}
       />
 
-      {isStrip(p.part.kind) && (
+      {isStrip(p.part) && (
         <StripFields
           placement={p}
           colors={colors}
@@ -258,7 +259,7 @@ function MmField({
   );
 }
 
-/** Terminal strip: count, and for terminal blocks the group label, colour and bridges. */
+/** Strip (terminals or an expandable part): count, and for terminal blocks the group label, colour and bridges. */
 function StripFields({
   placement: p,
   colors,
@@ -273,10 +274,16 @@ function StripFields({
   onChange: (patch: UpdatePlacementInput) => void;
 }) {
   const color = p.color ?? DEFAULT_TERMINAL_COLOR;
+  const terminal = isTerminalKind(p.part.kind);
   return (
     <Stack gap="xs">
-      <Divider label="Terminal strip" labelPosition="left" />
-      <CountField value={p.count} disabled={disabled} onCommit={(count) => onChange({ count })} />
+      <Divider label={terminal ? "Terminal strip" : "Row of modules"} labelPosition="left" />
+      <CountField
+        label={terminal ? "Terminals" : "Modules"}
+        value={p.count}
+        disabled={disabled}
+        onCommit={(count) => onChange({ count })}
+      />
       <Text size="xs" c="dimmed" mt={-6}>
         {formatMm(lengthAlongRail(p))} along the rail. It grows from its start end.
       </Text>
@@ -338,10 +345,12 @@ function StripFields({
 
 /** Number of terminals; saves on blur or Enter. */
 function CountField({
+  label,
   value,
   disabled,
   onCommit,
 }: {
+  label: string;
   value: number;
   disabled: boolean;
   onCommit: (count: number) => void;
@@ -358,7 +367,7 @@ function CountField({
   };
   return (
     <NumberInput
-      label="Terminals"
+      label={label}
       size="xs"
       min={1}
       max={MAX_STRIP_COUNT}

@@ -19,6 +19,7 @@ export const ComponentSnapshot = z.object({
   railMount: z.boolean(),
   railEdgeOffset: NonNegativeUnits.nullable(),
   snappable: z.boolean(),
+  expandable: z.boolean(),
   attributes: z.record(z.string(), z.json()),
   imagePath: z.string().nullable(),
 });

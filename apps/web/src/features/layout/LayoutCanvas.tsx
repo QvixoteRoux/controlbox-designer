@@ -429,7 +429,7 @@ function PlacedShape({
       ? { x: box.width, y: 0, rotation: 90 }
       : { x: 0, y: box.height, rotation: -90 };
   // Strips get a second line with the number of terminals, under a divider.
-  const strip = isStrip(p.part.kind);
+  const strip = isStrip(p.part);
   // Screen size cap: 11 px on rails and gutters, 13 px on the rotated part captions. A rail's
   // caption is smaller (0.3 of its width) and sits ~20% from its top edge (its right edge when
   // vertical), clear of the dashed centre line.
@@ -494,7 +494,7 @@ function PlacedShape({
         ) : (
           <Rect width={box.width} height={box.height} fill={`${warn ? colors.warn : base}33`} />
         )}
-        {isStrip(p.part.kind) && (
+        {isStrip(p.part) && (
           <StripDetails placement={p} vertical={vertical} px={px} colors={colors} />
         )}
         {p.part.kind === "RAIL" && (

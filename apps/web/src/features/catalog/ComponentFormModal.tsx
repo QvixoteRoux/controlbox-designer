@@ -63,6 +63,7 @@ interface Values {
   railMount: boolean;
   railEdgeOffset: Num;
   snappable: boolean;
+  expandable: boolean;
   attributes: { amperage: Num; poles: Num; levels: string; stockLength: Num };
 }
 
@@ -102,6 +103,7 @@ function toApi(v: Values) {
         railMount: v.railMount,
         railEdgeOffset: v.railMount && v.railEdgeOffset !== "" ? len(v.railEdgeOffset) : null,
         snappable: v.snappable,
+        expandable: v.expandable,
         attributes:
           v.kind === "FUSE"
             ? {
@@ -160,6 +162,7 @@ function initialValues(c: ComponentListItem | null): Values {
     railMount: c?.railMount ?? false,
     railEdgeOffset: mm(c?.railEdgeOffset),
     snappable: c?.snappable ?? true,
+    expandable: c?.expandable ?? false,
     attributes: {
       amperage: attrs.amperage ?? "",
       poles: attrs.poles ?? "",
@@ -418,10 +421,17 @@ function ComponentForm({
 
         {/* ── Rail mounting ── */}
         {(kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE") && (
-          <Switch
-            label="Mounts on DIN rail"
-            {...form.getInputProps("railMount", { type: "checkbox" })}
-          />
+          <>
+            <Switch
+              label="Mounts on DIN rail"
+              {...form.getInputProps("railMount", { type: "checkbox" })}
+            />
+            <Switch
+              label="Expandable"
+              description="Placed as a row of identical modules side by side (a count), like a terminal strip"
+              {...form.getInputProps("expandable", { type: "checkbox" })}
+            />
+          </>
         )}
         {(isTerminal(kind) ||
           ((kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE") && v.railMount)) && (

@@ -1,5 +1,6 @@
 import {
   ApiErrorBody,
+  ComponentInput,
   LayoutChangesResult,
   LayoutDetail,
   Placement,
@@ -7,6 +8,7 @@ import {
 } from "@cabinet-planner/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addUser, buildTestApp, builtInRail, db, login, resetDb } from "../../test/helpers.js";
+import { updateComponent } from "../services/components.js";
 import { releaseRevision } from "../services/revisions.js";
 
 let app: Awaited<ReturnType<typeof buildTestApp>>;
@@ -343,6 +345,50 @@ describe("terminal strips", () => {
     expect(res.statusCode).toBe(400);
     const one = await place({ componentId: contactor.id, x: 0, y: 0 });
     expect(one).toMatchObject({ count: 1, color: null, groupLabel: null, bridgedLevels: [] });
+  });
+});
+
+describe("expandable parts", () => {
+  const ioInput = (expandable: boolean) => ({
+    kind: "SAFETY" as const,
+    manufacturer: "Acme",
+    partNumber: expandable ? "IO-X" : "IO-1",
+    height: 1300,
+    width: 220,
+    depth: 800,
+    railMount: true,
+    railEdgeOffset: 400,
+    expandable,
+  });
+  const ioModule = (expandable: boolean) => db.component.create({ data: ioInput(expandable) });
+
+  it("places an expandable part as a row of modules, without terminal options", async () => {
+    const io = await ioModule(true);
+    const row = await place({ componentId: io.id, x: 0, y: 0, count: 4 });
+    expect(row).toMatchObject({ count: 4, color: null, part: { expandable: true } });
+    const res = await call(designer, "PATCH", `${cab}/placements/${row.id}`, { color: "RED" });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("refuses a row of a part that isn't expandable", async () => {
+    const io = await ioModule(false);
+    const res = await call(designer, "POST", `${cab}/placements`, {
+      componentId: io.id,
+      x: 0,
+      y: 0,
+      count: 2,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("keeps Expandable on while a working revision has a row of it", async () => {
+    const io = await ioModule(true);
+    const row = await place({ componentId: io.id, x: 0, y: 0, count: 3 });
+    const off = ComponentInput.parse({ ...ioInput(true), expandable: false });
+    await expect(updateComponent(db, io.id, off)).rejects.toMatchObject({ statusCode: 409 });
+
+    await call(designer, "PATCH", `${cab}/placements/${row.id}`, { count: 1 });
+    await expect(updateComponent(db, io.id, off)).resolves.toMatchObject({ expandable: false });
   });
 });
 

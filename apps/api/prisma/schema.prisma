@@ -317,6 +317,9 @@ model Component {
   railEdgeOffset Int?          @map("rail_edge_offset")
   /// Butts up flush against its snappable neighbours on a rail (side by side, no gap).
   snappable      Boolean       @default(true)
+  /// STANDARD, SAFETY, FUSE only: placed as a row of identical modules side by side (count),
+  /// like a terminal strip. Check components_expandable_kind.
+  expandable     Boolean       @default(false)
   /// Kind-specific fields, validated by the Zod schema for that kind.
   attributes     Json          @default("{}")
   imagePath      String?       @map("image_path")

@@ -11,6 +11,7 @@ import {
   terminalLevels,
 } from "./component.js";
 import { ComponentKind } from "./enums.js";
+import { isStrip } from "./placement.js";
 
 const identity = { manufacturer: "Acme", partNumber: "X-1" };
 const box = { height: 900, width: 52, depth: 600 };
@@ -164,6 +165,30 @@ describe("componentColumns", () => {
     expect(ComponentKind.options.indexOf("SAFETY")).toBe(
       ComponentKind.options.indexOf("STANDARD") + 1,
     );
+  });
+
+  it("lets Standard, Safety and Fuse parts be expandable, never terminals or profiles", () => {
+    const fields = { ...identity, ...box, expandable: true };
+    const columns = (input: object) => componentColumns(ComponentInput.parse(input));
+    expect(columns({ kind: "STANDARD", ...identity, ...box }).expandable).toBe(false);
+    expect(columns({ kind: "STANDARD", ...fields }).expandable).toBe(true);
+    expect(columns({ kind: "SAFETY", ...fields }).expandable).toBe(true);
+    expect(
+      columns({ kind: "FUSE", ...fields, attributes: { amperage: 10, poles: 1 } }).expandable,
+    ).toBe(true);
+    expect(
+      columns({ kind: "TERMINAL_BLOCK", ...fields, railEdgeOffset: 150, attributes: { levels: 1 } })
+        .expandable,
+    ).toBe(false);
+    expect(columns({ kind: "GUTTER", ...identity, width: 600, expandable: true }).expandable).toBe(
+      false,
+    );
+  });
+
+  it("places terminals and expandable parts as strips", () => {
+    expect(isStrip({ kind: "TERMINAL_BLOCK" })).toBe(true);
+    expect(isStrip({ kind: "STANDARD", expandable: false })).toBe(false);
+    expect(isStrip({ kind: "STANDARD", expandable: true })).toBe(true);
   });
 
   it("drops electrical fields on kinds that don't use them", () => {

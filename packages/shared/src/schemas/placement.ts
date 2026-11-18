@@ -20,13 +20,20 @@ export const Rotation = z.union([z.literal(0), z.literal(90)]);
 export type Rotation = z.infer<typeof Rotation>;
 export const ROTATIONS = [0, 90] as const satisfies Rotation[];
 
-/** Terminal strips: up to 200 terminals side by side in one placement. */
+/** Strips: up to 200 terminals or expandable modules side by side in one placement. */
 export const MAX_STRIP_COUNT = 200;
 export const DEFAULT_TERMINAL_COLOR: TerminalColor = "LIGHT_GREY";
 
-/** Kinds placed as strips (a count of identical terminals along the rail). */
-export const isStrip = (kind: ComponentKind) =>
+/** Terminals: always placed as strips. */
+export const isTerminalKind = (kind: ComponentKind) =>
   kind === "TERMINAL_BLOCK" || kind === "GROUND_TERMINAL";
+
+/**
+ * Parts placed as strips (a count of identical modules side by side along the rail):
+ * terminals, and parts marked expandable in the catalog.
+ */
+export const isStrip = (part: { kind: ComponentKind; expandable?: boolean }) =>
+  isTerminalKind(part.kind) || part.expandable === true;
 /** Only terminal blocks have a colour, group label and bridged levels (ground terminals don't). */
 export const hasStripOptions = (kind: ComponentKind) => kind === "TERMINAL_BLOCK";
 
@@ -66,6 +73,7 @@ export const PlacedPart = z.object({
   railMount: z.boolean(),
   railEdgeOffset: NonNegativeUnits.nullable(),
   snappable: z.boolean(),
+  expandable: z.boolean(),
   attributes: z.record(z.string(), z.json()),
   /** false when the catalog row was deactivated after it was placed. */
   active: z.boolean(),

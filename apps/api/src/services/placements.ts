@@ -37,6 +37,7 @@ const livePart = (c: Component): PlacedPart => ({
   railMount: c.railMount,
   railEdgeOffset: c.railEdgeOffset,
   snappable: c.snappable,
+  expandable: c.expandable,
   attributes: c.attributes as PlacedPart["attributes"],
   active: c.active,
 });
@@ -183,8 +184,8 @@ function assertStripFits(
     bridgedLevels?: number[];
   },
 ) {
-  if (strip.count !== undefined && strip.count !== 1 && !isStrip(component.kind)) {
-    throw new HttpError(400, "Only terminals can be placed as a strip");
+  if (strip.count !== undefined && strip.count !== 1 && !isStrip(component)) {
+    throw new HttpError(400, "Only terminals and expandable parts can be placed as a row");
   }
   const options =
     (strip.color !== undefined && strip.color !== null) ||

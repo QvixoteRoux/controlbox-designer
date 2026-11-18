@@ -86,6 +86,8 @@ const mounting = {
   /** Distance from the component's top edge to the rail's top edge. Only when railMount. */
   railEdgeOffset: NonNegativeUnits.nullable().default(null),
   snappable: z.boolean().default(true),
+  /** Placed as a row of identical modules side by side, like a terminal strip. */
+  expandable: z.boolean().default(false),
 };
 
 /** Terminals always sit on a rail, so the rail offset is required and they snap side by side. */
@@ -194,6 +196,7 @@ export function componentColumns(input: ComponentInput) {
       railMount: false,
       railEdgeOffset: null,
       snappable: false,
+      expandable: false,
     };
   }
   const base = {
@@ -210,6 +213,7 @@ export function componentColumns(input: ComponentInput) {
     railMount: false,
     railEdgeOffset: null as number | null,
     snappable: false,
+    expandable: false,
   };
   switch (input.kind) {
     case "STANDARD":
@@ -225,6 +229,7 @@ export function componentColumns(input: ComponentInput) {
         railMount: input.railMount,
         railEdgeOffset: input.railMount ? input.railEdgeOffset : null,
         snappable: input.snappable,
+        expandable: input.expandable,
       };
     case "TERMINAL_BLOCK":
     case "GROUND_TERMINAL":
@@ -264,6 +269,7 @@ export const Component = z.object({
   railMount: z.boolean(),
   railEdgeOffset: NonNegativeUnits.nullable(),
   snappable: z.boolean(),
+  expandable: z.boolean(),
   attributes: z.record(z.string(), z.json()),
   imagePath: z.string().nullable(),
   active: z.boolean(),

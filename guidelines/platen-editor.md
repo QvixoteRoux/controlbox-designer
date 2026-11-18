@@ -43,9 +43,10 @@ No tolerance setting (owner, 2026-11-17): snapping is about parts on a rail sitt
 
 A part on a rail that hangs past the rail's end (after shortening the rail) gets a warning.
 
-## Terminal strips (owner request 2026-11-17)
+## Terminal strips and expandable parts (owner requests 2026-11-17, 2026-11-18)
 
 - A placed TERMINAL_BLOCK or GROUND_TERMINAL is a **strip**: `count` identical terminals side by side along the rail (1–200), one placement. Its length along the rail is count × the catalog width (the pitch, e.g. 5.1 mm for a WDU 2.5). It snaps, butts up against its neighbours, turns with its rail and warns past the rail's end like any rail part. Changing the count keeps the strip's start end where it is.
+- A part marked **expandable** in the catalog (STANDARD, SAFETY, FUSE) is placed the same way: a **row** of `count` identical modules (e.g. I/O expansions), growing to the right (down on a vertical rail), with the same dividers and "N pcs" caption. It has no colour, group label or bridges. `isStrip(part)` decides; the API refuses a count above 1 on anything else.
 - TERMINAL_BLOCK strips also have:
   - an optional **group label**, drawn outside the strip's top edge (its right edge on a vertical rail)
   - **bridged levels**: levels whose terminals are all joined by a bridge (cross-connector) across the whole strip, drawn as an orange bar at that level. Level 1 is nearest the part's top edge. To bridge only part of a strip, split it into two strips.

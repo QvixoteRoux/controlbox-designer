@@ -103,6 +103,12 @@ ALTER TABLE cabinet_openings
     OR (kind = 'CABLE_GLAND'           AND gland_id IS NOT NULL AND width IS NULL AND height IS NULL AND diameter IS NULL)
   );
 
+-- Components: only kinds with the Standard fields can be expandable (placed as a row of
+-- identical modules, like a terminal strip). Added in migration expandable_parts.
+ALTER TABLE components
+  ADD CONSTRAINT components_expandable_kind
+  CHECK (NOT expandable OR kind IN ('STANDARD', 'SAFETY', 'FUSE'));
+
 -- Not enforced here (API does it, see guidelines):
 --   * released revisions are read-only
 --   * the last active ADMIN can't be demoted or deactivated

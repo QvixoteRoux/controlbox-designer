@@ -104,6 +104,22 @@ export async function updateComponent(db: PrismaClient, id: number, input: Compo
     throw new HttpError(409, "This component is in use, so its kind can't change");
   }
   const data = componentColumns(input);
+  if (current.expandable && !data.expandable) {
+    // Rows in released revisions keep their snapshot; working ones would lose their count.
+    const rows = await db.placement.count({
+      where: {
+        componentId: id,
+        count: { gt: 1 },
+        platen: { cabinet: { revision: { status: "WORKING" } } },
+      },
+    });
+    if (rows > 0) {
+      throw new HttpError(
+        409,
+        `This part is placed as a row of several modules ${rows === 1 ? "once" : `${rows} times`} in working revisions. Set those rows to 1 before turning Expandable off.`,
+      );
+    }
+  }
   await assertTypeUsable(db, input.typeId, current.typeId);
   await assertUnique(db, data, id);
   try {
