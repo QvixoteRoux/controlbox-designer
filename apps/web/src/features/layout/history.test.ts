@@ -1,4 +1,4 @@
-import { positionOnRail, type Placement } from "@cabinet-planner/shared";
+import { positionOnRail, profileDatum, type Placement } from "@cabinet-planner/shared";
 import { describe, expect, it } from "vitest";
 import { changesTo, newIds, remapIds } from "./history";
 import { followMoves, slideWithChain } from "./moves";
@@ -132,5 +132,23 @@ describe("slideWithChain (drag a part with its row)", () => {
   it("stops the row at the rail's start, dragging from the far end", () => {
     const to = positionOnRail(rail, part("STANDARD"), 0);
     expect(slideWithChain(last, to, [10, 11], all).x).toBe(rail.x + 900);
+  });
+});
+
+describe("profileDatum (dimension points)", () => {
+  it("measures a horizontal rail to its left end and centreline", () => {
+    // Rail at (500, 1000), 35 mm wide: centreline at y = 1000 + 175.
+    expect(profileDatum(rail)).toEqual({ x: 500, y: 1175 });
+  });
+
+  it("measures a vertical rail to its centreline and top end", () => {
+    const vertical = placement(9, {
+      part: part("RAIL"),
+      x: 500,
+      y: 1000,
+      length: 3000,
+      rotation: 90,
+    });
+    expect(profileDatum(vertical)).toEqual({ x: 675, y: 1000 });
   });
 });

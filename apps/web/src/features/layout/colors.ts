@@ -38,6 +38,8 @@ export function kindColors(theme: MantineTheme, dark: boolean) {
     warn: c.red[6],
     selected: c.blue[5],
     guide: c.pink[6],
+    /** Dimension lines (rails and gutters). */
+    dimension: dark ? c.teal[4] : c.teal[8],
     background: dark ? c.dark[7] : c.gray[2],
   };
 }

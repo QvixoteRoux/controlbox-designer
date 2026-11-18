@@ -13,6 +13,12 @@
 - Drawn **horizontally at 0°** (the default): the length runs along x and the profile width (35 mm for DIN rail) along y. 90° makes them vertical (`footprint()` / `rotatedSize()` in `packages/shared/src/layout.ts`).
 - A new one gets its catalog stock length (2000 mm). Cut it by typing the length or dragging the handle at its far end.
 
+## Dimensions (owner request 2026-11-18)
+
+- The toolbar switch **Dimensions** (off by default) draws X / Y dimension lines for every rail and gutter, outside the platen: X dimensions above its top edge, Y dimensions left of its left edge, from the platen's top-left corner.
+- Measured to the profile's **start end and centreline** (`profileDatum()` in `layout.ts`): horizontal, X to the left end and Y to the centreline; vertical, X to the centreline and Y to the top end. Equal values share one line; each value gets its own level, nearest values closest to the platen.
+- Labels in both units (`formatLength()`); Y labels read bottom to top. They're computed from the layout as drawn, so they follow a drag. Nothing is stored. "Fit" leaves a wider margin while they're shown.
+
 ## Placing and moving
 
 - Drag a component from the list onto the platen to create a placement.

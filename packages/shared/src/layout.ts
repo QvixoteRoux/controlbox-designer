@@ -201,6 +201,16 @@ export function withPatch<T extends PlacedGeometry>(
   });
 }
 
+/**
+ * Where a rail or gutter is dimensioned to from the platen's top-left corner (owner,
+ * 2026-11-18): its start end and its centreline. Horizontal: x = left end, y = centreline.
+ * Vertical: x = centreline, y = top end. Platen units (0.1 mm).
+ */
+export function profileDatum(p: Omit<PlacedGeometry, "id">) {
+  const b = placementBox(p);
+  return p.rotation === 90 ? { x: b.x + b.width / 2, y: b.y } : { x: b.x, y: b.y + b.height / 2 };
+}
+
 /** True when two boxes overlap (touching edges don't count). */
 export const boxesOverlap = (a: Box, b: Box) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;

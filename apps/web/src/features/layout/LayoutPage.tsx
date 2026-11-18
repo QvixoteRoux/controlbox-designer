@@ -81,6 +81,7 @@ function LayoutEditor({
   const history = useLayoutHistory(ref, cabinetId, placements);
   const [selection, setSelection] = useState<number[]>([]);
   const [gridSnap, setGridSnap] = useState(true);
+  const [dimensions, setDimensions] = useState(false);
   const [fitSignal, setFitSignal] = useState(0);
   const colors = kindColors(useMantineTheme(), useComputedColorScheme("light") === "dark");
 
@@ -273,6 +274,12 @@ function LayoutEditor({
             checked={gridSnap}
             onChange={(e) => setGridSnap(e.currentTarget.checked)}
           />
+          <Switch
+            size="xs"
+            label="Dimensions"
+            checked={dimensions}
+            onChange={(e) => setDimensions(e.currentTarget.checked)}
+          />
           <Button size="xs" variant="default" onClick={() => setFitSignal((n) => n + 1)}>
             Fit
           </Button>
@@ -310,6 +317,7 @@ function LayoutEditor({
               onSelectionChange={setSelection}
               editable={editable}
               gridSnap={gridSnap}
+              dimensions={dimensions}
               fitSignal={fitSignal}
               onEdit={(changes) => history.edit(changes)}
               onDropPart={(componentId, at) => {

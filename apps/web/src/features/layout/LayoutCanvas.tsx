@@ -25,6 +25,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useRef, useState, type DragEvent } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { kindColors, textOn } from "./colors";
+import { Dimensions } from "./Dimensions";
 import { followMoves, movesToChanges, slideWithChain, withMoves, type MovePatch } from "./moves";
 
 /** MIME type of a catalog part dragged from the part list. */
@@ -35,6 +36,8 @@ export const GRID = 50;
 /** Shortest length a rail or gutter can be dragged to: 10 mm. */
 const MIN_LENGTH = 100;
 const PAD = 24;
+/** Margin while dimensions are shown, so "Fit" keeps the first few dimension lines in view. */
+const DIMENSIONS_PAD = 80;
 /** "Near" for snapping, in screen pixels (no setting: guidelines/platen-editor.md). */
 const SNAP_PX = 8;
 
@@ -76,6 +79,8 @@ interface Props {
   onSelectionChange: (ids: number[]) => void;
   editable: boolean;
   gridSnap: boolean;
+  /** Draw X / Y dimension lines for the rails and gutters. */
+  dimensions: boolean;
   /** Bumped by the "Fit" button to reset zoom and pan. */
   fitSignal: number;
   /** A drag or a length handle ended: the changes to save (one undo step). */
@@ -108,7 +113,9 @@ export function LayoutCanvas(props: Props) {
   const ready = width > 0 && height > 0;
   const fitKey = `${props.fitSignal}|${platen.width}|${platen.height}`;
   if (ready && fitted.key !== fitKey) {
-    const scale = Math.min((width - 2 * PAD) / platen.width, (height - 2 * PAD) / platen.height);
+    // Toggling dimensions doesn't refit (it would lose the zoom); the next "Fit" makes room.
+    const pad = props.dimensions ? DIMENSIONS_PAD : PAD;
+    const scale = Math.min((width - 2 * pad) / platen.width, (height - 2 * pad) / platen.height);
     setFitted({
       key: fitKey,
       view: {
@@ -356,6 +363,7 @@ export function LayoutCanvas(props: Props) {
                 listening={false}
               />
             )}
+            {props.dimensions && <Dimensions placements={shown} px={px} colors={colors} />}
             {drag?.guides.map((g) => (
               <Line
                 key={`${g.axis}${g.at}`}
