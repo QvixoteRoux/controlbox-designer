@@ -6,6 +6,7 @@ export function kindColors(theme: MantineTheme, dark: boolean) {
   const c = theme.colors;
   const by: Record<ComponentKind, string> = {
     STANDARD: c.blue[dark ? 4 : 6],
+    SAFETY: c.yellow[dark ? 4 : 7],
     FUSE: c.orange[dark ? 4 : 6],
     TERMINAL_BLOCK: c.gray[dark ? 4 : 6],
     GROUND_TERMINAL: c.green[dark ? 5 : 7],

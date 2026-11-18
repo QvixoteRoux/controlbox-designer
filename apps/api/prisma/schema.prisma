@@ -64,6 +64,8 @@ enum OpeningKind {
 /// and how the platen editor treats it.
 enum ComponentKind {
   STANDARD
+  /// Safety devices (e-stops, safety relays…): the same fields as STANDARD, own colour.
+  SAFETY
   FUSE
   TERMINAL_BLOCK
   /// Green/yellow PE terminal: always 1 level.

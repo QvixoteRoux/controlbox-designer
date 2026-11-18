@@ -67,7 +67,8 @@ interface Values {
 }
 
 const LENGTH_FIELDS = ["height", "width", "depth", "railEdgeOffset"] as const;
-const allowsInches = (kind: ComponentKind) => kind === "STANDARD" || kind === "FUSE";
+const allowsInches = (kind: ComponentKind) =>
+  kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE";
 const isTerminal = (kind: ComponentKind) => kind === "TERMINAL_BLOCK" || kind === "GROUND_TERMINAL";
 
 /** Form values → the API body for the chosen kind (sizes to 0.1 mm; inches to whole mm). */
@@ -91,6 +92,7 @@ function toApi(v: Values) {
   };
   switch (v.kind) {
     case "STANDARD":
+    case "SAFETY":
     case "FUSE":
       return {
         ...identity,
@@ -392,7 +394,7 @@ function ComponentForm({
           </SimpleGrid>
         )}
 
-        {(kind === "STANDARD" || kind === "FUSE") && (
+        {(kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE") && (
           <SimpleGrid cols={2}>
             <TextInput
               label="Input voltage"
@@ -415,13 +417,14 @@ function ComponentForm({
         )}
 
         {/* ── Rail mounting ── */}
-        {(kind === "STANDARD" || kind === "FUSE") && (
+        {(kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE") && (
           <Switch
             label="Mounts on DIN rail"
             {...form.getInputProps("railMount", { type: "checkbox" })}
           />
         )}
-        {(isTerminal(kind) || ((kind === "STANDARD" || kind === "FUSE") && v.railMount)) && (
+        {(isTerminal(kind) ||
+          ((kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE") && v.railMount)) && (
           <SimpleGrid cols={2}>
             <NumberInput
               label="Rail edge offset"

@@ -51,7 +51,7 @@ A database check rule enforces the right fields for each kind.
   - Saved as separate CABLE_GLAND openings (no array record), all in one transaction; edited and deleted one by one afterwards.
   - A label becomes a numbered prefix ("PG" → PG1, PG2…), row by row from the first hole. With one hole the label is kept as is.
   - The form warns before saving when the pitch is smaller than the hole diameter (neighbours overlap) or holes stick out past the face (`gridWarnings()`). Saving is still allowed.
-- A **round hole** can hold a catalog component (pushbutton, pilot light…): `component_id`, kinds STANDARD or FUSE only (`canMountInHole()`). A new choice must be active; the hole keeps a part deactivated later. Changing the hole to another kind clears it.
+- A **round hole** can hold a catalog component (pushbutton, pilot light…): `component_id`, kinds STANDARD, SAFETY or FUSE only (`canMountInHole()`). A new choice must be active; the hole keeps a part deactivated later. Changing the hole to another kind clears it.
 
 ## Catalog (`components`)
 
@@ -59,14 +59,15 @@ One table for every catalog item. The common columns are manufacturer, part numb
 
 `kind` decides which fields the form and API take, and what `attributes` (JSON) holds. Each kind has its own input schema in `packages/shared/src/schemas/component.ts`; `componentColumns()` fills in the columns a kind doesn't use.
 
-| kind            | input                                                 | attributes                          | notes                                                                                                                     |
-| --------------- | ----------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| STANDARD        | W × H × D, voltage, phases, rail mount + offset, snap | `{}`                                | Most devices. Sizes can be typed in inches (rounded to whole mm).                                                         |
-| FUSE            | same as STANDARD                                      | `{ amperage, poles }`               | Fuse holder and fuse are one item. Inches allowed.                                                                        |
-| TERMINAL_BLOCK  | W × H × D, rail offset (required), snappable          | `{ levels: 1–4 }`                   | Always rail mounted, snappable like every part. Width is along the rail. 4 levels is rare.                                |
-| GROUND_TERMINAL | same as TERMINAL_BLOCK                                | `{}`                                | Green/yellow PE terminal, **always 1 level**, no colour choice.                                                           |
-| GUTTER          | width, height (optional, 0 = not given)               | `{ stockLength }` (default 2000 mm) | Stored as width = duct width, depth = duct height, height = 0. The width is what matters on the platen; height is for 3D. |
-| RAIL            | type, code, description only                          | `{ stockLength: 2000 mm }`          | **Built in, exactly one** (see below). TS35 × 7.5: width = 350, depth = 75, height = 0. Mounting holes are ignored.       |
+| kind            | input                                                 | attributes                          | notes                                                                                                                                                       |
+| --------------- | ----------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| STANDARD        | W × H × D, voltage, phases, rail mount + offset, snap | `{}`                                | Most devices. Sizes can be typed in inches (rounded to whole mm).                                                                                           |
+| SAFETY          | same as STANDARD                                      | `{}`                                | Safety devices (e-stops, safety relays…), owner 2026-11-18. Listed right after STANDARD and drawn in yellow on the platen; otherwise treated like STANDARD. |
+| FUSE            | same as STANDARD                                      | `{ amperage, poles }`               | Fuse holder and fuse are one item. Inches allowed.                                                                                                          |
+| TERMINAL_BLOCK  | W × H × D, rail offset (required), snappable          | `{ levels: 1–4 }`                   | Always rail mounted, snappable like every part. Width is along the rail. 4 levels is rare.                                                                  |
+| GROUND_TERMINAL | same as TERMINAL_BLOCK                                | `{}`                                | Green/yellow PE terminal, **always 1 level**, no colour choice.                                                                                             |
+| GUTTER          | width, height (optional, 0 = not given)               | `{ stockLength }` (default 2000 mm) | Stored as width = duct width, depth = duct height, height = 0. The width is what matters on the platen; height is for 3D.                                   |
+| RAIL            | type, code, description only                          | `{ stockLength: 2000 mm }`          | **Built in, exactly one** (see below). TS35 × 7.5: width = 350, depth = 75, height = 0. Mounting holes are ignored.                                         |
 
 **The DIN rail is built in.** It's a standard size across manufacturers, so the catalog holds exactly one rail: Generic TS35x7.5 (35 × 7.5 mm, 2000 mm stock; `BUILT_IN_RAIL` in `packages/shared`). Migration `builtin_din_rail` adds it to every database. The API refuses to add another rail, turn a part into a rail or the rail into something else, and refuses to delete it. It is always active, and its sizes can't change. The DB backs this up with the unique index `components_one_rail` and the check `components_builtin_rail`. Only its type, code, description and picture can be edited.
 

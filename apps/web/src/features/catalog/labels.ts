@@ -2,6 +2,7 @@ import type { ComponentKind, TerminalColor } from "@cabinet-planner/shared";
 
 export const COMPONENT_KIND_LABELS: Record<ComponentKind, string> = {
   STANDARD: "Standard",
+  SAFETY: "Safety",
   FUSE: "Fuse",
   TERMINAL_BLOCK: "Terminal block",
   GROUND_TERMINAL: "Ground terminal",

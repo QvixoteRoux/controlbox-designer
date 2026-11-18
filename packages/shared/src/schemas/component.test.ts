@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BUILT_IN_RAIL,
+  canMountInHole,
   ComponentInput,
   componentColumns,
   DEFAULT_STOCK_LENGTH,
@@ -9,6 +10,7 @@ import {
   stockLength,
   terminalLevels,
 } from "./component.js";
+import { ComponentKind } from "./enums.js";
 
 const identity = { manufacturer: "Acme", partNumber: "X-1" };
 const box = { height: 900, width: 52, depth: 600 };
@@ -145,6 +147,23 @@ describe("componentColumns", () => {
     expect(
       componentColumns(ComponentInput.parse({ ...standard, snappable: false })).snappable,
     ).toBe(false);
+  });
+
+  it("takes a safety device with the same fields as a standard part", () => {
+    const input = {
+      ...identity,
+      ...box,
+      inputVoltage: "24 V DC",
+      railMount: true,
+      railEdgeOffset: 200,
+    };
+    const safety = componentColumns(ComponentInput.parse({ kind: "SAFETY", ...input }));
+    const standard = componentColumns(ComponentInput.parse({ kind: "STANDARD", ...input }));
+    expect(safety).toEqual({ ...standard, kind: "SAFETY" });
+    expect(canMountInHole("SAFETY")).toBe(true);
+    expect(ComponentKind.options.indexOf("SAFETY")).toBe(
+      ComponentKind.options.indexOf("STANDARD") + 1,
+    );
   });
 
   it("drops electrical fields on kinds that don't use them", () => {

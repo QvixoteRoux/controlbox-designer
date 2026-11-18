@@ -22,6 +22,7 @@ export type OpeningKind = z.infer<typeof OpeningKind>;
 
 export const ComponentKind = z.enum([
   "STANDARD",
+  "SAFETY",
   "FUSE",
   "TERMINAL_BLOCK",
   "GROUND_TERMINAL",

@@ -113,6 +113,17 @@ const StandardInput = z
     attributes: StandardAttributes.default({}),
   })
   .refine(railOffsetOnlyWhenRailMounted, railOffsetError);
+/** Safety devices: the same fields as STANDARD, drawn in their own colour. */
+const SafetyInput = z
+  .object({
+    kind: z.literal("SAFETY"),
+    ...identity,
+    ...electrical,
+    ...box,
+    ...mounting,
+    attributes: StandardAttributes.default({}),
+  })
+  .refine(railOffsetOnlyWhenRailMounted, railOffsetError);
 const FuseInput = z
   .object({
     kind: z.literal("FUSE"),
@@ -157,6 +168,7 @@ const RailInput = z.object({
 /** POST /api/components and PUT /api/components/:id. */
 export const ComponentInput = z.discriminatedUnion("kind", [
   StandardInput,
+  SafetyInput,
   FuseInput,
   TerminalBlockInput,
   GroundTerminalInput,
@@ -201,6 +213,7 @@ export function componentColumns(input: ComponentInput) {
   };
   switch (input.kind) {
     case "STANDARD":
+    case "SAFETY":
     case "FUSE":
       return {
         ...base,
@@ -279,7 +292,7 @@ export const ComponentRef = Component.pick({
 export type ComponentRef = z.infer<typeof ComponentRef>;
 
 /** Kinds that can be mounted in a round hole on a cabinet face (pushbuttons, pilot lights…). */
-export const HOLE_MOUNT_KINDS = ["STANDARD", "FUSE"] as const satisfies ComponentKind[];
+export const HOLE_MOUNT_KINDS = ["STANDARD", "SAFETY", "FUSE"] as const satisfies ComponentKind[];
 export const canMountInHole = (kind: ComponentKind) =>
   (HOLE_MOUNT_KINDS as readonly ComponentKind[]).includes(kind);
 
