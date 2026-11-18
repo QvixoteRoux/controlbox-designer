@@ -5,6 +5,7 @@
 - **Left:** a searchable catalog list grouped by kind and type. Buttons there open the catalog popup to add or edit a component; it's the same popup as the Catalog menu.
 - **Centre:** the Konva stage.
   - Layers from back to front: platen outline and grid → rails and gutters → components → snap guides and selection.
+  - **Captions** (part number, or the tag when set): rails and gutters write it along their length. Every other part writes it **90° counterclockwise** (owner, 2026-11-18): at 0° it reads bottom to top (tilt your head left), so the long part numbers of narrow parts side by side on a rail aren't cut off when zoomed out. The caption turns with the part, so at 90° it reads left to right. Part captions are up to 13 px on screen, rails and gutters up to 11 px; on a narrow part the caption shrinks to fit (0.4 × the part's width, 0.3 on strips).
 - **Right:** properties of the selection: X, Y (mm), rotation, length (rails and gutters), tag, locked, and catalog info.
 
 ## Rails and gutters

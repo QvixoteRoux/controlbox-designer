@@ -382,12 +382,22 @@ function PlacedShape({
   const caption = p.tag ?? p.part.partNumber;
   const terminal =
     p.part.kind === "TERMINAL_BLOCK" ? colors.terminal[p.color ?? DEFAULT_TERMINAL_COLOR] : null;
-  // Caption frame: along the part (turned with it) × across it.
-  const along = vertical ? box.height : box.width;
-  const across = vertical ? box.width : box.height;
+  // Caption frame: the text runs along `along`, and `across` is the room for its height.
+  // Rails and gutters: along their length (turned with them).
+  // Every other part: along its own height axis, reading bottom to top at 0° (90° counterclockwise,
+  // so long part numbers fit narrow parts side by side on a rail); at 90° that is left to right.
+  const captionVertical = isProfile(p.part.kind) ? vertical : !vertical;
+  const along = captionVertical ? box.height : box.width;
+  const across = captionVertical ? box.width : box.height;
+  const captionFrame = !captionVertical
+    ? { x: 0, y: 0, rotation: 0 }
+    : isProfile(p.part.kind)
+      ? { x: box.width, y: 0, rotation: 90 }
+      : { x: 0, y: box.height, rotation: -90 };
   // Strips get a second line with the number of terminals, under a divider.
   const strip = isStrip(p.part.kind);
-  const fontSize = Math.min(11 * px, across * (strip ? 0.3 : 0.4));
+  // Screen size cap: 11 px on rails and gutters, 13 px on the rotated part captions.
+  const fontSize = Math.min((isProfile(p.part.kind) ? 11 : 13) * px, across * (strip ? 0.3 : 0.4));
   const showText = fontSize >= 6 * px;
   const textFill = terminal?.text ?? colors.text;
   // The far end of a rail or gutter: drag it to cut the length.
@@ -457,7 +467,7 @@ function PlacedShape({
           dash={p.locked ? [4 * px, 3 * px] : undefined}
         />
         {showText && (
-          <Group x={vertical ? box.width : 0} rotation={vertical ? 90 : 0} listening={false}>
+          <Group {...captionFrame} listening={false}>
             {strip ? (
               <>
                 <Text
