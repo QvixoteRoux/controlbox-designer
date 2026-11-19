@@ -8,7 +8,8 @@ Web app for laying out electrical cabinets:
 - `guidelines/README.md`: index of the project rules. Read the file for the area you're touching before you change it.
 - `projectnotes/`: tracked project notes (progress log, owner decisions, open items, bugs, feature plans). Read `projectnotes/README.md` for what goes where. **The repo is public:** nothing private goes there.
 - `agentNotes/`: your scratch space (untracked), for working notes that don't belong in `projectnotes/`.
-- `localnotes/`: the owner's private notes (untracked). Read them only when asked and never edit them.
+- `localnotes/`: the owner's private notes (untracked). Read them only when asked and never write your own changes into them.
+- Syncing untracked notes: when the owner asks to sync notes, merge `localnotes/` and `agentNotes/` both ways with the owner's shared notes folder (its path is in `localnotes/`, not here: the repo is public). Copy the newer version of each file; merge `agentNotes/progress.md` by its per-PC sections.
 
 ## Stack (fixed: ask before swapping anything)
 
