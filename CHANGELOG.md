@@ -48,7 +48,7 @@ Released drawings keep showing what was released. Afterwards, open a released re
   - Pasted parts land centred on the mouse pointer and snap onto a rail under it.
   - A copied rail brings its copied parts with it.
   - Tags get the next free number.
-- **Wire space** (`b267f5b`): terminal strips keep 40 mm free above and below them, drawn dashed. Any other part inside that space is flagged on both parts.
+- **Wire space** (`b267f5b`): terminal strips (terminal blocks and ground terminals) keep 40 mm free above and below them, drawn dashed. Any other part inside that space is flagged on both parts.
 
 ### Export
 
