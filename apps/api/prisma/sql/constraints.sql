@@ -53,6 +53,16 @@ ALTER TABLE components
   ADD CONSTRAINT components_size_non_negative
   CHECK (height >= 0 AND width > 0 AND depth >= 0);
 
+-- Cabinets: 1 or 2 doors. Two doors are hinged left and right (BOTH) and mounted as
+-- manufactured (TOP); one door never uses BOTH. Added in migration cabinet_doors.
+ALTER TABLE cabinets
+  ADD CONSTRAINT cabinets_doors
+  CHECK (
+        doors IN (1, 2)
+    AND (doors = 2) = (hinge_side::text = 'BOTH')
+    AND (doors = 1 OR up_face = 'TOP')
+  );
+
 -- Components: phases only 1 or 3; rail offset only when rail mounted.
 ALTER TABLE components
   ADD CONSTRAINT components_phases

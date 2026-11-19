@@ -1,7 +1,8 @@
 import {
   canMountInHole,
   defaultPlatenSize,
-  defaultWindow,
+  defaultWindows,
+  doorProblem,
   gridPositions,
   type CreateCabinetInput,
   type GlandArrayInput,
@@ -179,14 +180,31 @@ export async function updateCabinet(
   const revision = await findRevision(db, ref);
   try {
     return await inEditableRevision(db, revision.id, async (tx) => {
-      await findCabinet(tx, revision.id, cabinetId);
+      const current = await findCabinet(tx, revision.id, cabinetId);
       if (patch.typeId !== undefined) await assertTypeUsable(tx, patch.typeId);
-      return tx.cabinet.update({ where: { id: cabinetId }, data: patch });
+      const data = withDoors(current, patch);
+      const problem = doorProblem({ ...current, ...data });
+      if (problem) throw new HttpError(400, problem.message);
+      return tx.cabinet.update({ where: { id: cabinetId }, data });
     });
   } catch (err) {
     if (isUniqueViolation(err)) throw numberTaken(patch.number);
     throw err;
   }
+}
+
+/**
+ * Switching doors brings the hinge side and mounting along unless they're given: 2 doors →
+ * hinged BOTH, mounted TOP; back to 1 door → hinged LEFT.
+ */
+function withDoors(current: { hingeSide: string }, patch: UpdateCabinetInput): UpdateCabinetInput {
+  if (patch.doors === 2) {
+    return { ...patch, hingeSide: patch.hingeSide ?? "BOTH", upFace: patch.upFace ?? "TOP" };
+  }
+  if (patch.doors === 1 && patch.hingeSide === undefined && current.hingeSide === "BOTH") {
+    return { ...patch, hingeSide: "LEFT" };
+  }
+  return patch;
 }
 
 export async function deleteCabinet(db: PrismaClient, ref: RevisionRef, cabinetId: number) {
@@ -216,7 +234,7 @@ export async function updatePlaten(
 }
 
 /**
- * The "Window: yes / no" switch. Yes adds the default window when there's none; no removes every
+ * The "Window: yes / no" switch. Yes adds the default window (one per door) when there's none; no removes every
  * window on the cabinet. Window yes/no itself is never stored (guidelines/data-model.md).
  */
 export async function setWindow(
@@ -234,7 +252,9 @@ export async function setWindow(
     }
     const existing = await tx.cabinetOpening.count({ where: { cabinetId, kind: "WINDOW" } });
     if (existing === 0) {
-      await tx.cabinetOpening.create({ data: { cabinetId, ...defaultWindow(cabinet) } });
+      await tx.cabinetOpening.createMany({
+        data: defaultWindows(cabinet).map((w) => ({ cabinetId, ...w })),
+      });
     }
   });
 }

@@ -14,7 +14,8 @@ export type CabinetMaterial = z.infer<typeof CabinetMaterial>;
 export const Face = z.enum(["FRONT", "BACK", "LEFT", "RIGHT", "TOP", "BOTTOM"]);
 export type Face = z.infer<typeof Face>;
 
-export const HingeSide = z.enum(["LEFT", "RIGHT", "TOP", "BOTTOM", "NONE"]);
+/** BOTH: 2-door cabinets (left door hinged on the left, right door on the right). */
+export const HingeSide = z.enum(["LEFT", "RIGHT", "TOP", "BOTTOM", "NONE", "BOTH"]);
 export type HingeSide = z.infer<typeof HingeSide>;
 
 export const OpeningKind = z.enum(["WINDOW", "ROUND_HOLE", "RECT_HOLE", "CABLE_GLAND"]);

@@ -18,6 +18,11 @@ Decisions that shape the product, grouped by area. The rules they led to are in 
 - Round holes and glands are placed by their centre; windows and rectangular holes by their top-left corner. Stored that way in the database (2026-11-17).
 - Gland arrays: x/y is the centre of the first (top-left) hole; the array grows right and down (2026-11-17).
 
+## Cabinets
+
+- A cabinet has **1 or 2 doors**. 2-door cabinets have two vertical doors, the left one hinged on the left and the right one on the right, and they can't be mounted rotated (they're large). 1-door cabinets stay as before (2026-11-18).
+- Openings on FRONT that cross the middle of a 2-door cabinet get a warning; "Window: yes" adds one window per door (2026-11-18).
+
 ## Catalog
 
 - No image size limits (a 20 MB technical cap remains); PNG, JPEG, WebP (2026-11-17).

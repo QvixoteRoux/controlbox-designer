@@ -1,5 +1,6 @@
 import {
   faceSize,
+  hasOpeningWarning,
   openingShape,
   shapeBounds,
   toMm,
@@ -13,7 +14,7 @@ import { useElementSize } from "@mantine/hooks";
 import { Arrow, Circle, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 
 interface Props {
-  cabinet: { width: number; height: number; depth: number; hingeSide: HingeSide };
+  cabinet: { width: number; height: number; depth: number; doors: number; hingeSide: HingeSide };
   face: Face;
   /** Openings on this face. */
   openings: Opening[];
@@ -93,18 +94,22 @@ export function FaceView({ cabinet, face, openings, warnings, selectedId, onSele
             <Text x={left - 12} y={top + 16} text="Y" fill={colors.text} fontSize={10} />
             <Text x={left - 12} y={top - 14} text="0" fill={colors.text} fontSize={10} />
 
+            {face === "FRONT" && (cabinet.hingeSide === "LEFT" || cabinet.hingeSide === "BOTH") && (
+              <Line points={[left, top, left, bottom]} stroke={colors.hinge} strokeWidth={5} />
+            )}
             {face === "FRONT" &&
-              (cabinet.hingeSide === "LEFT" || cabinet.hingeSide === "RIGHT") && (
-                <Line
-                  points={
-                    cabinet.hingeSide === "LEFT"
-                      ? [left, top, left, bottom]
-                      : [right, top, right, bottom]
-                  }
-                  stroke={colors.hinge}
-                  strokeWidth={5}
-                />
+              (cabinet.hingeSide === "RIGHT" || cabinet.hingeSide === "BOTH") && (
+                <Line points={[right, top, right, bottom]} stroke={colors.hinge} strokeWidth={5} />
               )}
+            {face === "FRONT" && cabinet.doors === 2 && (
+              // Where the two doors meet.
+              <Line
+                points={[(left + right) / 2, top, (left + right) / 2, bottom]}
+                stroke={colors.edge}
+                strokeWidth={1.5}
+                dash={[6, 4]}
+              />
+            )}
             {face === "FRONT" &&
               (cabinet.hingeSide === "TOP" || cabinet.hingeSide === "BOTTOM") && (
                 <Line
@@ -132,7 +137,7 @@ export function FaceView({ cabinet, face, openings, warnings, selectedId, onSele
               const shape = openingShape(o);
               if (!shape) return null;
               const w = warnings.get(o.id);
-              const warn = w ? w.outside || w.overlaps.length > 0 : false;
+              const warn = hasOpeningWarning(w);
               const base =
                 o.kind === "WINDOW"
                   ? colors.window

@@ -45,7 +45,8 @@ All lengths and positions are **integers in 0.1 mm** in the DB, the API and the 
 
 ## Orientation
 
-- `hinge_side`: the door hinge side in the cabinet's own frame.
+- `hinge_side`: the door hinge side in the cabinet's own frame. `BOTH` is for 2-door cabinets (left door hinged left, right door hinged right); see "Doors" in `data-model.md`.
+- 2-door cabinets are always mounted as manufactured (`up_face = TOP`).
 - `up_face`: which face points up once mounted. `TOP` means mounted as manufactured.
 - Face names never change when the cabinet is rotated. Only the drawing rotates. This keeps hole positions valid whichever way the cabinet ends up mounted.
 

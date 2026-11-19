@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  crossesDoors,
   defaultWindow,
+  defaultWindows,
   faceSize,
   fitsOnFace,
   gridPositions,
@@ -122,11 +124,11 @@ describe("openingWarnings", () => {
 
     const w = openingWarnings(cabinet, openings);
 
-    expect(w.get(1)).toEqual({ outside: false, overlaps: [2] });
-    expect(w.get(2)).toEqual({ outside: false, overlaps: [1] });
-    expect(w.get(3)).toEqual({ outside: false, overlaps: [] });
+    expect(w.get(1)).toEqual({ outside: false, overlaps: [2], acrossDoors: false });
+    expect(w.get(2)).toEqual({ outside: false, overlaps: [1], acrossDoors: false });
+    expect(w.get(3)).toEqual({ outside: false, overlaps: [], acrossDoors: false });
     // LEFT is 2000 wide: 1900 + 150 > 2000.
-    expect(w.get(4)).toEqual({ outside: true, overlaps: [] });
+    expect(w.get(4)).toEqual({ outside: true, overlaps: [], acrossDoors: false });
   });
 });
 
@@ -206,5 +208,53 @@ describe("defaultWindow", () => {
       width: 2001,
       height: 3001,
     });
+  });
+});
+
+describe("two doors", () => {
+  const twoDoors = { ...cabinet, doors: 2 };
+
+  it("put one window in the middle of each door", () => {
+    const [left, right] = defaultWindows({ width: 4000, height: 6000, doors: 2 });
+    expect(left).toMatchObject({ x: 500, y: 1500, width: 1000, height: 3000 });
+    expect(right).toMatchObject({ x: 2500, y: 1500, width: 1000, height: 3000 });
+    expect(defaultWindows({ width: 4000, height: 6000 })).toEqual([defaultWindow(cabinet)]);
+  });
+
+  it("flag FRONT openings across the middle, not ones touching it", () => {
+    expect(crossesDoors(rect(1900, 0, 200, 100), twoDoors)).toBe(true);
+    expect(crossesDoors(rect(1800, 0, 200, 100), twoDoors)).toBe(false);
+    expect(crossesDoors({ round: true, x: 2000, y: 500, diameter: 225 }, twoDoors)).toBe(true);
+    expect(crossesDoors(rect(1900, 0, 200, 100), cabinet)).toBe(false);
+  });
+
+  it("only warn on FRONT", () => {
+    const openings = [
+      {
+        id: 1,
+        face: "FRONT" as const,
+        kind: "RECT_HOLE" as const,
+        x: 1900,
+        y: 0,
+        width: 200,
+        height: 100,
+        diameter: null,
+        gland: null,
+      },
+      {
+        id: 2,
+        face: "BACK" as const,
+        kind: "RECT_HOLE" as const,
+        x: 1900,
+        y: 0,
+        width: 200,
+        height: 100,
+        diameter: null,
+        gland: null,
+      },
+    ];
+    const w = openingWarnings(twoDoors, openings);
+    expect(w.get(1)?.acrossDoors).toBe(true);
+    expect(w.get(2)?.acrossDoors).toBe(false);
   });
 });

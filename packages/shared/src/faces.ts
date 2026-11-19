@@ -92,12 +92,28 @@ export interface OpeningWarnings {
   outside: boolean;
   /** Ids of other openings on the same face that this one overlaps. */
   overlaps: number[];
+  /** On FRONT of a 2-door cabinet, it crosses the middle where the two doors meet. */
+  acrossDoors: boolean;
 }
 
-/** Warnings per opening id: outside its face, or overlapping another opening on the same face. */
+export const hasOpeningWarning = (w: OpeningWarnings | undefined) =>
+  w !== undefined && (w.outside || w.overlaps.length > 0 || w.acrossDoors);
+
+/** True when a shape on FRONT crosses the line where two doors meet (touching it doesn't). */
+export function crossesDoors(shape: OpeningShape, cabinet: { width: number; doors?: number }) {
+  if (cabinet.doors !== 2) return false;
+  const b = shapeBounds(shape);
+  const middle = cabinet.width / 2;
+  return b.left < middle && b.right > middle;
+}
+
+/**
+ * Warnings per opening id: outside its face, overlapping another opening on the same face, or
+ * (2-door cabinets) across the middle of FRONT where the doors meet.
+ */
 export function openingWarnings<
   O extends { id: number; face: Face } & Parameters<typeof openingShape>[0],
->(cabinet: { width: number; height: number; depth: number }, openings: O[]) {
+>(cabinet: { width: number; height: number; depth: number; doors?: number }, openings: O[]) {
   const shapes = openings.map((o) => ({ o, shape: openingShape(o) }));
   const result = new Map<number, OpeningWarnings>();
   for (const { o, shape } of shapes) {
@@ -115,9 +131,21 @@ export function openingWarnings<
     result.set(o.id, {
       outside: shape !== null && !fitsOnFace(shape, faceSize(cabinet, o.face)),
       overlaps,
+      acrossDoors: shape !== null && o.face === "FRONT" && crossesDoors(shape, cabinet),
     });
   }
   return result;
+}
+
+/**
+ * The windows that "Window: yes" creates: one centred on FRONT for a 1-door cabinet; one per
+ * door for a 2-door cabinet, each centred in its door at half the door's width and height.
+ */
+export function defaultWindows(cabinet: { width: number; height: number; doors?: number }) {
+  if (cabinet.doors !== 2) return [defaultWindow(cabinet)];
+  const door = Math.round(cabinet.width / 2);
+  const left = defaultWindow({ width: door, height: cabinet.height });
+  return [left, { ...left, x: left.x + cabinet.width - door }];
 }
 
 /**

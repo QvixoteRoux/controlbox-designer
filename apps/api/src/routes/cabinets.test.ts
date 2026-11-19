@@ -165,6 +165,65 @@ describe("cabinets", () => {
   });
 });
 
+describe("doors", () => {
+  it("default to one door, hinged on the left", async () => {
+    expect(await newCabinet()).toMatchObject({ doors: 1, hingeSide: "LEFT", upFace: "TOP" });
+  });
+
+  it("two doors are hinged left and right and mounted as manufactured", async () => {
+    const c = await newCabinet({ doors: 2 });
+    expect(c).toMatchObject({ doors: 2, hingeSide: "BOTH", upFace: "TOP" });
+
+    const hinged = await call(
+      designer,
+      "POST",
+      `${rev}/cabinets`,
+      cabinetBody({ doors: 2, hingeSide: "LEFT" }),
+    );
+    const rotated = await call(
+      designer,
+      "POST",
+      `${rev}/cabinets`,
+      cabinetBody({ doors: 2, upFace: "FRONT" }),
+    );
+    const single = await call(
+      designer,
+      "POST",
+      `${rev}/cabinets`,
+      cabinetBody({ hingeSide: "BOTH" }),
+    );
+    for (const res of [hinged, rotated, single]) expect(res.statusCode).toBe(400);
+  });
+
+  it("switching doors brings the hinges and mounting along", async () => {
+    const c = await newCabinet({ hingeSide: "RIGHT", upFace: "LEFT" });
+    const url = cabinetUrl(c.id);
+
+    const two = await call(designer, "PATCH", url, { doors: 2 });
+    expect(Cabinet.parse(two.json())).toMatchObject({ doors: 2, hingeSide: "BOTH", upFace: "TOP" });
+    expect((await call(designer, "PATCH", url, { upFace: "BOTTOM" })).statusCode).toBe(400);
+    expect((await call(designer, "PATCH", url, { hingeSide: "LEFT" })).statusCode).toBe(400);
+
+    const one = await call(designer, "PATCH", url, { doors: 1 });
+    expect(Cabinet.parse(one.json())).toMatchObject({ doors: 1, hingeSide: "LEFT", upFace: "TOP" });
+  });
+
+  it("get one window per door, and the database keeps the rule", async () => {
+    const c = await newCabinet({ doors: 2 });
+    await call(designer, "PUT", `${cabinetUrl(c.id)}/window`, { hasWindow: true });
+    const windows = (await detail(c.id)).openings.filter((o) => o.kind === "WINDOW");
+    // 400 mm wide: two 200 mm doors, each with a centred 100 × 300 mm window.
+    expect(windows.map((w) => [w.x, w.y, w.width, w.height])).toEqual([
+      [500, 1500, 1000, 3000],
+      [2500, 1500, 1000, 3000],
+    ]);
+
+    await expect(
+      db.cabinet.update({ where: { id: c.id }, data: { upFace: "LEFT" } }),
+    ).rejects.toThrow();
+  });
+});
+
 describe("the window switch", () => {
   it("adds a centred FRONT window at half the door size, once", async () => {
     const c = await newCabinet();

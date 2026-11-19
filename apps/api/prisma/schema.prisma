@@ -51,6 +51,8 @@ enum HingeSide {
   TOP
   BOTTOM
   NONE
+  /// 2-door cabinets: left door hinged on the left, right door on the right.
+  BOTH
 }
 
 enum OpeningKind {
@@ -220,6 +222,9 @@ model Cabinet {
   hasPlaten     Boolean         @default(true) @map("has_platen")
   mainVoltage   String          @map("main_voltage")
   otherVoltages String[]        @default([]) @map("other_voltages")
+  /// 1, or 2 vertical doors meeting in the middle of FRONT. 2 doors: hinge_side = BOTH and
+  /// up_face = TOP (DB check cabinets_doors).
+  doors         Int             @default(1)
   hingeSide     HingeSide       @default(LEFT) @map("hinge_side")
   /// Which face points up once mounted. TOP = mounted as manufactured.
   upFace        Face            @default(TOP) @map("up_face")

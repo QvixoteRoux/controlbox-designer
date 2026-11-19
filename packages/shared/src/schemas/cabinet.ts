@@ -23,6 +23,28 @@ export const defaultPlatenSize = (cabinet: { height: number; width: number }) =>
 const OuterSize = PositiveUnits.gt(PLATEN_MARGIN, "Must be more than 50 mm");
 const Voltage = z.string().trim().min(1, "Required").max(50);
 
+/** 1 door, or 2 vertical doors meeting in the middle of FRONT. */
+export const Doors = z.union([z.literal(1), z.literal(2)]);
+export type Doors = z.infer<typeof Doors>;
+
+/**
+ * 2-door cabinets (owner, 2026-11-18): the left door is hinged on the left, the right door on
+ * the right (hinge side BOTH), and they're mounted as manufactured (up face TOP): they're large
+ * and can't be mounted rotated. 1-door cabinets keep a single hinge side and any mounting.
+ * Returns what's wrong, or null.
+ */
+export function doorProblem(c: { doors: number; hingeSide: HingeSide; upFace: Face }) {
+  if (c.doors === 2) {
+    if (c.hingeSide !== "BOTH")
+      return { path: "hingeSide", message: "2 doors are hinged left and right" };
+    if (c.upFace !== "TOP")
+      return { path: "upFace", message: "A 2-door cabinet can't be mounted rotated" };
+  } else if (c.hingeSide === "BOTH") {
+    return { path: "hingeSide", message: "A single door is hinged on one side" };
+  }
+  return null;
+}
+
 const cabinetFields = {
   /** 1, 2, 3… unique within the revision. */
   number: z.number().int().positive(),
@@ -34,6 +56,7 @@ const cabinetFields = {
   hasPlaten: z.boolean(),
   mainVoltage: Voltage,
   otherVoltages: z.array(Voltage),
+  doors: Doors,
   hingeSide: HingeSide,
   upFace: Face,
   extra: Extra,
@@ -48,16 +71,31 @@ export const Cabinet = z.object({
 });
 export type Cabinet = z.infer<typeof Cabinet>;
 
-/** `number` may be left out: the API takes the next free one in the revision. */
-export const CreateCabinetInput = z.object({
-  ...cabinetFields,
-  number: cabinetFields.number.optional(),
-  hasPlaten: cabinetFields.hasPlaten.default(true),
-  otherVoltages: cabinetFields.otherVoltages.default([]),
-  hingeSide: cabinetFields.hingeSide.default("LEFT"),
-  upFace: cabinetFields.upFace.default("TOP"),
-  extra: cabinetFields.extra.default({}),
-});
+/**
+ * `number` may be left out: the API takes the next free one in the revision. Hinge side and
+ * mounting follow the doors when left out (1 door: LEFT; 2 doors: BOTH; up face TOP); given
+ * ones must fit the doors (doorProblem).
+ */
+export const CreateCabinetInput = z
+  .object({
+    ...cabinetFields,
+    number: cabinetFields.number.optional(),
+    hasPlaten: cabinetFields.hasPlaten.default(true),
+    otherVoltages: cabinetFields.otherVoltages.default([]),
+    doors: Doors.default(1),
+    hingeSide: HingeSide.optional(),
+    upFace: Face.optional(),
+    extra: cabinetFields.extra.default({}),
+  })
+  .transform((c) => ({
+    ...c,
+    hingeSide: c.hingeSide ?? (c.doors === 2 ? ("BOTH" as const) : ("LEFT" as const)),
+    upFace: c.upFace ?? ("TOP" as const),
+  }))
+  .superRefine((c, ctx) => {
+    const problem = doorProblem(c);
+    if (problem) ctx.addIssue({ code: "custom", path: [problem.path], message: problem.message });
+  });
 export type CreateCabinetInput = z.infer<typeof CreateCabinetInput>;
 
 export const UpdateCabinetInput = z

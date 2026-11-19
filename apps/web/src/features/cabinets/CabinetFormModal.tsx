@@ -12,6 +12,7 @@ import {
   Group,
   Modal,
   NumberInput,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
@@ -34,8 +35,11 @@ import {
   type RevisionRef,
 } from "./api";
 
-const label = (s: string) => s[0] + s.slice(1).toLowerCase();
+const label = (s: string) => (s === "BOTH" ? "Left and right" : s[0] + s.slice(1).toLowerCase());
 const options = (values: readonly string[]) => values.map((v) => ({ value: v, label: label(v) }));
+/** One door: a single hinge side. Two doors: always left and right. */
+const hingeOptions = (doors: string) =>
+  doors === "2" ? options(["BOTH"]) : options(HingeSide.options.filter((h) => h !== "BOTH"));
 
 interface Values {
   number: number | string;
@@ -46,6 +50,7 @@ interface Values {
   depth: number | string;
   mainVoltage: string;
   otherVoltages: string[];
+  doors: string; // "1" or "2"
   hingeSide: string;
   upFace: string;
   hasPlaten: boolean;
@@ -61,6 +66,7 @@ const toApi = (v: Values) => ({
   depth: mmToUnits(v.depth),
   mainVoltage: v.mainVoltage,
   otherVoltages: v.otherVoltages,
+  doors: Number(v.doors),
   hingeSide: v.hingeSide,
   upFace: v.upFace,
   hasPlaten: v.hasPlaten,
@@ -112,12 +118,25 @@ function CabinetForm({
       depth: cabinet ? unitsToMm(cabinet.depth) : "",
       mainVoltage: cabinet?.mainVoltage ?? "",
       otherVoltages: cabinet?.otherVoltages ?? [],
+      doors: String(cabinet?.doors ?? 1),
       hingeSide: cabinet?.hingeSide ?? "LEFT",
       upFace: cabinet?.upFace ?? "TOP",
       hasPlaten: cabinet?.hasPlaten ?? true,
     },
     validate: convertingResolver(CreateCabinetInput, toApi),
   });
+
+  const twoDoors = form.getValues().doors === "2";
+  /** 2 doors fix the hinges (left and right) and the mounting (as manufactured). */
+  const setDoors = (doors: string) => {
+    form.setFieldValue("doors", doors);
+    if (doors === "2") {
+      form.setFieldValue("hingeSide", "BOTH");
+      form.setFieldValue("upFace", "TOP");
+    } else if (form.getValues().hingeSide === "BOTH") {
+      form.setFieldValue("hingeSide", "LEFT");
+    }
+  };
 
   const submit = form.onSubmit((values) => {
     const input = CreateCabinetInput.parse(toApi(values));
@@ -190,19 +209,45 @@ function CabinetForm({
           />
         </SimpleGrid>
 
+        <div>
+          <Text size="sm" fw={500} mb={4}>
+            Doors
+          </Text>
+          <SegmentedControl
+            data={[
+              { value: "1", label: "1 door" },
+              { value: "2", label: "2 doors" },
+            ]}
+            value={twoDoors ? "2" : "1"}
+            onChange={setDoors}
+          />
+          {twoDoors && (
+            <Text size="xs" c="dimmed" mt={4}>
+              Two vertical doors: the left one hinged on the left, the right one on the right.
+              Mounted as manufactured.
+            </Text>
+          )}
+        </div>
+
         <SimpleGrid cols={{ base: 1, xs: 2 }}>
           <Select
             label="Door hinge side"
-            description="As seen from the front"
-            data={options(HingeSide.options)}
+            description={twoDoors ? "Fixed for 2 doors" : "As seen from the front"}
+            data={hingeOptions(form.getValues().doors)}
             allowDeselect={false}
+            disabled={twoDoors}
             {...form.getInputProps("hingeSide")}
           />
           <Select
             label="Face pointing up when mounted"
-            description="Top = mounted as manufactured"
+            description={
+              twoDoors
+                ? "2-door cabinets can't be mounted rotated"
+                : "Top = mounted as manufactured"
+            }
             data={options(Face.options)}
             allowDeselect={false}
+            disabled={twoDoors}
             {...form.getInputProps("upFace")}
           />
         </SimpleGrid>

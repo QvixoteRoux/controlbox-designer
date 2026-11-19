@@ -28,8 +28,12 @@ User 1─* Session
 - `type` comes from the `cabinet_types` lookup table. Seed it with Control, Power, Jumper, Safety, Motion, Comms and General; admins can add more later.
 - `number` defaults to the next free number in the revision when left out.
 - Height and width must be more than 50 mm, so the default platen fits.
+- **Doors** (owner, 2026-11-18): `doors` is 1 (default) or 2.
+  - 1 door: one hinge side (LEFT, RIGHT, TOP, BOTTOM or NONE) and any mounting (`up_face`), as before.
+  - 2 doors: two vertical doors meeting in the middle of FRONT. The left door is hinged on the left and the right door on the right (`hinge_side = BOTH`), and the cabinet is mounted as manufactured (`up_face = TOP`): these are large cabinets that can't be mounted rotated. DB check `cabinets_doors`; the API refuses other combinations (400). Left out, hinge side and mounting follow the doors; switching to 2 doors sets them, switching back to 1 sets the hinge to LEFT.
+  - An opening on FRONT of a 2-door cabinet that crosses the middle line gets an "across both doors" warning (`crossesDoors()` in `packages/shared/src/faces.ts`). Touching the line doesn't count.
 - **Window yes/no is derived**: a cabinet has a window when it has an opening of kind `WINDOW`. The Yes/No switch (`PUT …/window`):
-  - Yes: if there's no window, adds one centred on FRONT at half the door's width and height (`defaultWindow()` in `packages/shared/src/faces.ts`). No form; edit it in the openings list.
+  - Yes: if there's no window, adds one centred on FRONT at half the door's width and height; on a 2-door cabinet, one per door, centred in each (`defaultWindows()` in `packages/shared/src/faces.ts`). No form; edit them in the openings list.
   - No: removes **every** window on the cabinet. Holes and glands stay.
 - Every cabinet gets a platen row on creation (default size). `has_platen` off keeps the row, so switching it back on restores the size and layout.
 - `other_voltages`: a list of strings, which can be empty.

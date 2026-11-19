@@ -3,6 +3,7 @@ import {
   can,
   Face,
   formatRev,
+  hasOpeningWarning,
   openingWarnings,
   toMm,
   type Opening,
@@ -96,9 +97,7 @@ export function CabinetPage() {
   const warnings = openingWarnings(c, c.openings);
   const onFace = c.openings.filter((o) => o.face === face);
   const hasWindow = c.openings.some((o) => o.kind === "WINDOW");
-  const warningCount = [...warnings.values()].filter(
-    (w) => w.outside || w.overlaps.length > 0,
-  ).length;
+  const warningCount = [...warnings.values()].filter(hasOpeningWarning).length;
   const showError = (err: unknown) =>
     notifications.show({ color: "red", message: errorMessage(err) });
 
@@ -171,7 +170,10 @@ export function CabinetPage() {
             <Field label="Material">{title(c.material)}</Field>
             <Field label="Main voltage">{c.mainVoltage}</Field>
             <Field label="Other voltages">{c.otherVoltages.join(", ") || "–"}</Field>
-            <Field label="Door hinge">{title(c.hingeSide)}</Field>
+            <Field label="Doors">{c.doors}</Field>
+            <Field label="Door hinge">
+              {c.hingeSide === "BOTH" ? "Left and right" : title(c.hingeSide)}
+            </Field>
             <Field label="Mounted with up">{title(c.upFace)}</Field>
           </SimpleGrid>
         </Card>
@@ -257,7 +259,11 @@ export function CabinetPage() {
           <Text size="sm" c="dimmed" mb="xs">
             {FACE_LABELS[face]}, seen from outside
             {face === "TOP" || face === "BOTTOM" ? " (front edge at the bottom)" : ""}
-            {face === "FRONT" && c.hingeSide !== "NONE" ? ". Orange edge = hinge side" : ""}
+            {face === "FRONT" && c.hingeSide !== "NONE"
+              ? c.doors === 2
+                ? ". Orange edges = hinges, dashed line = where the doors meet"
+                : ". Orange edge = hinge side"
+              : ""}
           </Text>
           <FaceView
             cabinet={c}
@@ -310,6 +316,11 @@ export function CabinetPage() {
                           {w && w.overlaps.length > 0 && (
                             <Badge size="xs" color="red" variant="light">
                               Overlaps
+                            </Badge>
+                          )}
+                          {w?.acrossDoors && (
+                            <Badge size="xs" color="red" variant="light">
+                              Across both doors
                             </Badge>
                           )}
                         </Table.Td>

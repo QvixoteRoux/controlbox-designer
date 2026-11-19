@@ -10,6 +10,7 @@ WITH expected(name, kind) AS (
     ('machine_revisions_release_info', 'check'),
     ('machine_revisions_release_notes','check'),
     ('cabinets_positive_size',         'check'),
+    ('cabinets_doors',                 'check'),
     ('platens_positive_size',          'check'),
     ('components_size_non_negative',   'check'),
     ('components_phases',              'check'),
