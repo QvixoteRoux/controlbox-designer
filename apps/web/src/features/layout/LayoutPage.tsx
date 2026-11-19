@@ -47,6 +47,7 @@ import { kindColors } from "./colors";
 import { GRID, LayoutCanvas } from "./LayoutCanvas";
 import { changedFields, followMoves, movesToChanges } from "./moves";
 import { PartList } from "./PartList";
+import { pasteChanges } from "./paste";
 import { PlatenExport, type ExportKind } from "./PlatenExport";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { useLayoutHistory } from "./useLayoutHistory";
@@ -86,6 +87,9 @@ function LayoutEditor({
   const [gridSnap, setGridSnap] = useState(true);
   const [dimensions, setDimensions] = useState(false);
   const [exporting, setExporting] = useState<ExportKind | null>(null);
+  // Copy / paste within this platen: the copied placements as they were, and the pointer.
+  const [clipboard, setClipboard] = useState<Placement[]>([]);
+  const pointer = useRef<{ x: number; y: number } | null>(null);
   const [fitSignal, setFitSignal] = useState(0);
   const colors = kindColors(useMantineTheme(), useComputedColorScheme("light") === "dark");
 
@@ -165,7 +169,19 @@ function LayoutEditor({
     history.edit(changes, { mergeKey: `nudge:${[...selection].sort().join(",")}` });
   };
 
-  // Keyboard: undo / redo, nudge, delete, select all, clear. Not while typing in a field.
+  /** Pastes the copied parts at the pointer (or next to the originals), selecting them. */
+  const paste = () => {
+    if (!platen || clipboard.length === 0) return;
+    const changes = pasteChanges(clipboard, placements, pointer.current, {
+      grid: gridSnap ? GRID : null,
+      platen,
+    });
+    history.edit(changes, {
+      onDone: (result) => setSelection(result.created.map((c) => c.id)),
+    });
+  };
+
+  // Keyboard: undo / redo, copy / paste, nudge, delete, select all, clear. Not while typing.
   const onKey = (e: KeyboardEvent) => {
     if (isTyping(e.target)) return;
     const mod = e.ctrlKey || e.metaKey;
@@ -177,6 +193,12 @@ function LayoutEditor({
     } else if (mod && key === "y") {
       e.preventDefault();
       history.redo();
+    } else if (mod && key === "c" && selected.length > 0) {
+      e.preventDefault();
+      setClipboard(selected);
+    } else if (mod && key === "v" && editable && clipboard.length > 0) {
+      e.preventDefault();
+      paste();
     } else if (mod && key === "a") {
       e.preventDefault();
       setSelection(placements.map((p) => p.id));
@@ -362,6 +384,9 @@ function LayoutEditor({
               editable={editable}
               gridSnap={gridSnap}
               dimensions={dimensions}
+              onPointer={(at) => {
+                pointer.current = at;
+              }}
               fitSignal={fitSignal}
               onEdit={(changes) => history.edit(changes)}
               onDropPart={(componentId, at) => {
@@ -458,6 +483,7 @@ function Shortcuts({ editable }: { editable: boolean }) {
       ["Delete", "delete the selection"],
       ["Ctrl + Z", "undo"],
       ["Ctrl + Y", "redo"],
+      ["Ctrl + C / Ctrl + V", "copy / paste at the pointer"],
       ["Drag a part on a rail", "the parts touching it in a row come along"],
       ["Middle-drag a part", "move only that part"],
       ["Alt while dragging", "no snapping, off the rail"],

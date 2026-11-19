@@ -86,6 +86,8 @@ interface Props {
   fitSignal: number;
   /** A drag or a length handle ended: the changes to save (one undo step). */
   onEdit: (changes: LayoutChange[]) => void;
+  /** Where the pointer is on the platen (platen units), or null when it leaves the canvas. */
+  onPointer?: (at: { x: number; y: number } | null) => void;
   /** A part was dropped from the list at this point (platen units). */
   onDropPart: (componentId: number, at: { x: number; y: number }) => void;
 }
@@ -298,7 +300,9 @@ export function LayoutCanvas(props: Props) {
           onMouseMove={() => {
             const at = stageRef.current?.getRelativePointerPosition();
             if (band && at) setBand({ ...band, x1: at.x, y1: at.y });
+            props.onPointer?.(at ?? null);
           }}
+          onMouseLeave={() => props.onPointer?.(null)}
           onMouseUp={() => {
             if (!bandBox) return;
             const hit = placements

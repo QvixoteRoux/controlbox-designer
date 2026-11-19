@@ -41,6 +41,10 @@
 - **Rows on a rail** (owner, 2026-11-18): dragging a part on a rail also moves its **chain**, the parts on the same rail touching it in an unbroken row (butted, or overlapping), as if they were selected with it. A gap or a locked part ends the row. Only the dragged part snaps; the row keeps its spacing and stops as a whole at the rail's ends (`railChain()` in `layout.ts`, `slideWithChain()` in `apps/web/src/features/layout/moves.ts`). Arrow-key nudges and typed positions move only the selection.
   - **Middle button + drag** moves only that one part (not its row, not the rest of the selection), still snapping and staying on its rail. Middle drag on the background pans.
   - **Alt + drag** is unchanged: no snapping, and the part comes off its rail. Its row stays behind (the rest of the selection still follows).
+- **Copy / paste** (owner, 2026-11-18): Ctrl + C copies the selection (as it is at that moment); Ctrl + V pastes it, on the same platen only, as one undo step, and selects the pasted parts. `pasteChanges()` in `apps/web/src/features/layout/paste.ts`.
+  - The group lands **centred on the mouse pointer**, or 10 mm right and down from the originals when the pointer isn't over the platen. One rail-mounted part snaps like a drop (onto a rail under it) and the rest keep their places around it; other rail-mounted parts land on a rail under them if there is one. With no rail under it, the shift goes to the grid (grid snap on).
+  - A copied rail is pasted with the copied parts on it, riding the new rail.
+  - **Tags** get the next free number with the same prefix (-K1 → -K7 when -K6 is the highest); parts without a tag stay without. Pasted parts are unlocked; count, colour, group label, bridges and lengths are kept.
 - **Locked** placements can't be dragged, nudged or edited numerically until they're unlocked. They're still selectable, and a multi-select move or delete leaves them alone.
 
 ## Snapping
