@@ -8,14 +8,28 @@ Work is organised as **projects → machines → revisions → cabinets → plat
 
 - **Projects, machines and revisions:** a working revision per machine; releasing it freezes it (with release notes), and the next revision starts as a copy.
 - **Cabinets:** size, material, voltages, and openings on each face (windows, round and rectangular holes, cable glands and gland arrays), with warnings for overlaps and holes off the face.
-- **Component catalog:** standard parts, fuses, terminal blocks (1–4 levels), ground terminals, wire ducts and the built-in 35 mm DIN rail. Sizes in mm, or in inches for standard parts. A picture per part.
+- **Component catalog:**
+  - **Kinds:** standard parts, safety devices, fuses, relays, terminal blocks (1–4 levels), ground terminals, wire ducts and the built-in 35 mm DIN rail.
+  - **Sizes and pictures:** sizes in mm, or in inches for standard-type parts. A picture per part.
+  - **Relays:** a relay can include its base (socket) in the same entry, and is drawn as one unit.
+  - **Snappable:** a part sits flush against its neighbours on a rail.
+  - **Expandable:** a part is placed as a row of identical modules, like a terminal strip.
+  - **Types:** component types group the catalog and can set a fill colour for their parts.
 - **Platen editor:**
-  - drag parts from the catalog onto the platen; zoom, pan, 5 mm grid
-  - rail snap: rail-mounted parts click onto DIN rails at their datasheet offset, sit side by side, and turn with vertical rails; moving a rail moves its parts
-  - alignment guides for everything else
-  - terminal strips: N terminals in one placement, with colour, group label and bridged levels
-  - multi-select, arrow-key nudge, undo/redo
-  - warnings for overlaps, parts off the platen, rails longer than stock, and parts hanging past a rail's end
+  - **Placing:** drag parts from a collapsible kind → type list onto the platen. Zoom, pan, 5 mm grid.
+  - **Rail snap:** rail-mounted parts click onto DIN rails at their datasheet offset, sit side by side and turn with vertical rails. Moving a rail moves its parts.
+  - **Rows on a rail:** dragging a part brings the parts touching it. Middle-drag moves one part on its own.
+  - **Alignment guides** for everything else.
+  - **Terminal strips** and **expandable rows:** N modules in one placement. Terminal blocks add colour, group label and bridged levels.
+  - **Captions** read bottom to top. Rails and ducts show their cut length in mm and inches.
+  - **Dimensions:** X/Y dimension lines for rails and ducts, from the platen's top-left corner.
+  - **Editing:** multi-select, arrow-key nudge, copy/paste (Ctrl+C / Ctrl+V), undo/redo.
+  - **Warnings** for overlaps, parts off the platen, rails longer than stock, parts hanging past a rail's end, and parts in a terminal strip's 40 mm wire space.
+  - **Export** as PNG:
+    - printable letter pages, with the drawing at a standard scale and a grouped parts list;
+    - or one full-size sheet at 10 px/mm.
+
+    Both have a title block.
 - **Users and permissions:** viewer, designer and admin roles; separate rights for editing projects and the catalog.
 
 ## Stack

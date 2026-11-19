@@ -1,0 +1,59 @@
+# Changelog
+
+What changed, newest first. The rules behind each change are in [guidelines/](guidelines/README.md); the commit hashes point to the full change.
+
+## 2026-11-18
+
+### Upgrading
+
+Five new migrations: `rename_stackable_to_snappable`, `safety_kind`, `expandable_parts`, `component_type_fill_color`, `relay_kind`. After pulling:
+
+```
+pnpm install
+pnpm --filter api prisma migrate dev
+pnpm --filter @cabinet-planner/shared build
+```
+
+The tests load `packages/shared` from its built `dist/`, so rebuild it after changing the shared package.
+
+Some migrations also update the snapshots of released revisions:
+
+- the `stackable` field is renamed to `snappable`;
+- `expandable` and `fillColor` are added.
+
+Released drawings keep showing what was released. Afterwards, open a released revision to check it still draws from its snapshot.
+
+### Catalog
+
+- **Snappable** (`28e7452`): the flag was called "stackable" and is now on by default for every part. Behaviour is unchanged: parts on the same rail butt up with no gap. "Stackable" is kept for parts mounted on top of each other, which isn't modelled yet.
+- **Safety kind** (`51396a4`): it has the same fields as Standard, is listed right after it and is drawn in yellow. It can also be mounted in a round hole on a cabinet face.
+- **Expandable parts** (`ae283f7`): Standard, Safety and Fuse parts can be marked expandable. They're then placed as a row of identical modules (a count of 1–200), growing to the right like a terminal strip. Expandable can't be switched off while a working revision has the part placed as a row.
+- **Type fill colour** (`66368a8`): component types can set a fill colour for their parts. The kind still sets the outline. Captions switch to dark or white text so they stay readable.
+- **Relay kind** (`f4f394e`): "Base mount" is on by default.
+  - The relay entry also holds the base (socket): its manufacturer, part number and size, plus the mounted depth of the pair.
+  - The rail offset is measured from the base.
+  - On the platen, base and relay are one box: their combined outline, with the relay centred on the base.
+  - Parts lists add the base as its own row.
+
+### Platen editor
+
+- **Captions** (`ea65ea1`, `2e2638f`):
+  - Part numbers read bottom to top, so they aren't cut off on narrow parts when zoomed out.
+  - Rails and ducts add their cut length (`1200 mm / 47.24 in`).
+  - Rail captions sit clear of the dashed centre line.
+- **Rows on a rail** (`1685def`): dragging a part brings the parts touching it in an unbroken row on that rail. The row stops as a whole at the rail's ends. Middle-button drag moves one part on its own, and Alt + drag is unchanged.
+- **Part list** (`66368a8`): collapsible groups by kind, then type. A search opens every group with a match.
+- **Dimensions** (`1090ed5`): a toolbar switch draws X/Y dimension lines for rails and ducts, measured from the platen's top-left corner to each one's start end and centreline. Labels show mm and inches.
+- **Copy / paste** (`166b7de`): Ctrl+C / Ctrl+V, on the same platen.
+  - Pasted parts land centred on the mouse pointer and snap onto a rail under it.
+  - A copied rail brings its copied parts with it.
+  - Tags get the next free number.
+- **Wire space** (`b267f5b`): terminal strips keep 40 mm free above and below them, drawn dashed. Any other part inside that space is flagged on both parts.
+
+### Export
+
+- **Full size PNG** (`5548686`): one sheet at 10 px/mm with the platen, dimensions, a parts legend and a title block. Text is a fixed size on the drawing.
+- **Letter pages** (`af02bd4`): printable PNGs at 300 dpi.
+  - Page 1 has the drawing at the largest standard scale that fits, in automatic orientation, with the scale in the title block.
+  - Text is a fixed size on paper.
+  - Page 2 onwards lists the parts, grouped.
