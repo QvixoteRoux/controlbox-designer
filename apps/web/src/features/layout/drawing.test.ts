@@ -64,7 +64,7 @@ const layout = (placements: Placement[]): LayoutDetail => ({
     project: { id: 1, name: "Line 4 / Retrofit" },
     machine: { id: 2, name: "Press" },
     revision: { id: 3, rev: 1, status: "WORKING" },
-  } as LayoutDetail["context"],
+  },
   cabinet: { id: 5, number: 2, depth: 2000, hasPlaten: true },
   platen: { width: 6000, height: 8000 } as LayoutDetail["platen"],
   placements,
