@@ -45,6 +45,7 @@ controlbox-designer/
 │        └─ permissions.ts can()
 ├─ guidelines/             tracked
 ├─ CLAUDE.md               tracked
+├─ projectnotes/           tracked: progress, decisions, open items, bugs, plans
 ├─ .env                    untracked, one file for the whole repo (copy of .env.example)
 ├─ localnotes/             untracked
 └─ agentNotes/             untracked

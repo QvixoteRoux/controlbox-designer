@@ -6,7 +6,8 @@ Web app for laying out electrical cabinets:
 ## Read first
 
 - `guidelines/README.md`: index of the project rules. Read the file for the area you're touching before you change it.
-- `agentNotes/`: your scratch space (untracked). Keep a running log of decisions, open questions and TODOs in `agentNotes/progress.md`.
+- `projectnotes/`: tracked project notes (progress log, owner decisions, open items, bugs, feature plans). Read `projectnotes/README.md` for what goes where. **The repo is public:** nothing private goes there.
+- `agentNotes/`: your scratch space (untracked), for working notes that don't belong in `projectnotes/`.
 - `localnotes/`: the owner's private notes (untracked). Read them only when asked and never edit them.
 
 ## Stack (fixed: ask before swapping anything)
@@ -47,4 +48,4 @@ pnpm typecheck && pnpm lint && pnpm test
 
 - Typecheck, lint and tests pass.
 - If a rule in `guidelines/` should change, propose the change and ask before editing.
-- Add a line to `agentNotes/progress.md`.
+- Update `projectnotes/`: a line in `progress.md`, and `decisions.md`, `open.md`, `bugs.md` or `plans/` as needed.
