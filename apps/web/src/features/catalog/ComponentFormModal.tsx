@@ -5,6 +5,7 @@ import {
   DEFAULT_STOCK_LENGTH,
   isBuiltIn,
   MAX_TERMINAL_LEVELS,
+  RelayAttributes,
   stockLength,
   terminalLevels,
   toMm,
@@ -64,11 +65,27 @@ interface Values {
   railEdgeOffset: Num;
   snappable: boolean;
   expandable: boolean;
-  attributes: { amperage: Num; poles: Num; levels: string; stockLength: Num };
+  attributes: {
+    amperage: Num;
+    poles: Num;
+    levels: string;
+    stockLength: Num;
+    /** Relays: plugged into a base (typed below) that mounts on the rail. */
+    baseMount: boolean;
+    base: { manufacturer: string; partNumber: string; width: Num; height: Num; depth: Num };
+    /** Relays on a base: base + relay as mounted. */
+    mountedDepth: Num;
+  };
 }
 
 const LENGTH_FIELDS = ["height", "width", "depth", "railEdgeOffset"] as const;
-const allowsInches = (kind: ComponentKind) =>
+const BASE_LENGTH_FIELDS = ["width", "height", "depth"] as const;
+/** Kinds with the Standard fields (voltage, phases, rail mount, inches). */
+const standardLike = (kind: ComponentKind) =>
+  kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE" || kind === "RELAY";
+const allowsInches = standardLike;
+/** Kinds that can be expandable (rows of modules). Not relays. */
+const canExpand = (kind: ComponentKind) =>
   kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE";
 const isTerminal = (kind: ComponentKind) => kind === "TERMINAL_BLOCK" || kind === "GROUND_TERMINAL";
 
@@ -112,6 +129,31 @@ function toApi(v: Values) {
               }
             : {},
       };
+    case "RELAY": {
+      const { baseMount, base, mountedDepth } = v.attributes;
+      return {
+        ...identity,
+        ...box,
+        inputVoltage: optionalText(v.inputVoltage),
+        phases: v.phases === "" ? null : Number(v.phases),
+        railMount: v.railMount,
+        railEdgeOffset: v.railMount && v.railEdgeOffset !== "" ? len(v.railEdgeOffset) : null,
+        snappable: v.snappable,
+        attributes: {
+          baseMount,
+          base: baseMount
+            ? {
+                manufacturer: base.manufacturer,
+                partNumber: base.partNumber,
+                width: len(base.width),
+                height: len(base.height),
+                depth: len(base.depth),
+              }
+            : null,
+          mountedDepth: baseMount ? len(mountedDepth) : null,
+        },
+      };
+    }
     case "TERMINAL_BLOCK":
     case "GROUND_TERMINAL":
       return {
@@ -145,6 +187,9 @@ function initialValues(c: ComponentListItem | null): Values {
   const mm = (u: number | null | undefined) => (u == null ? "" : toMm(u));
   const attrs = (c?.attributes ?? {}) as Partial<Record<"amperage" | "poles", number>>;
   const stock = c ? stockLength(c) : null;
+  // A relay keeps its own size and its base as typed; its columns hold the outline of both.
+  const relay = c?.kind === "RELAY" ? RelayAttributes.safeParse(c.attributes).data : undefined;
+  const sizes = relay?.relay ?? c;
   return {
     kind: c?.kind ?? "STANDARD",
     typeId: c?.typeId == null ? null : String(c.typeId),
@@ -156,11 +201,11 @@ function initialValues(c: ComponentListItem | null): Values {
     inputVoltage: c?.inputVoltage ?? "",
     phases: c?.phases == null ? "" : String(c.phases),
     unit: "mm",
-    height: c && c.height > 0 ? mm(c.height) : "",
-    width: c && c.kind !== "RAIL" ? mm(c.width) : "",
-    depth: c && c.depth > 0 ? mm(c.depth) : "",
+    height: sizes && sizes.height > 0 ? mm(sizes.height) : "",
+    width: sizes && c?.kind !== "RAIL" ? mm(sizes.width) : "",
+    depth: sizes && sizes.depth > 0 ? mm(sizes.depth) : "",
     railMount: c?.railMount ?? false,
-    railEdgeOffset: mm(c?.railEdgeOffset),
+    railEdgeOffset: mm(relay?.baseMount ? relay.baseRailEdgeOffset : c?.railEdgeOffset),
     snappable: c?.snappable ?? true,
     expandable: c?.expandable ?? false,
     attributes: {
@@ -168,6 +213,15 @@ function initialValues(c: ComponentListItem | null): Values {
       poles: attrs.poles ?? "",
       levels: String(c ? Math.max(terminalLevels(c), 1) : 1),
       stockLength: toMm(stock ?? DEFAULT_STOCK_LENGTH),
+      baseMount: relay?.baseMount ?? true,
+      base: {
+        manufacturer: relay?.base?.manufacturer ?? "",
+        partNumber: relay?.base?.partNumber ?? "",
+        width: mm(relay?.base?.width),
+        height: mm(relay?.base?.height),
+        depth: mm(relay?.base?.depth),
+      },
+      mountedDepth: mm(relay?.mountedDepth),
     },
   };
 }
@@ -222,9 +276,20 @@ function ComponentForm({
     .map((t) => ({ value: String(t.id), label: t.active ? t.name : `${t.name} – inactive` }));
 
   const switchUnit = (to: LengthUnit) => {
+    const values = form.getValues();
     for (const field of LENGTH_FIELDS) {
-      form.setFieldValue(field, convertLength(form.getValues()[field], v.unit, to));
+      form.setFieldValue(field, convertLength(values[field], v.unit, to));
     }
+    for (const field of BASE_LENGTH_FIELDS) {
+      form.setFieldValue(
+        `attributes.base.${field}`,
+        convertLength(values.attributes.base[field], v.unit, to),
+      );
+    }
+    form.setFieldValue(
+      "attributes.mountedDepth",
+      convertLength(values.attributes.mountedDepth, v.unit, to),
+    );
     form.setFieldValue("unit", to);
   };
 
@@ -333,7 +398,7 @@ function ComponentForm({
           <>
             <Group justify="space-between" align="flex-end">
               <Text size="sm" fw={500}>
-                Size as mounted
+                {kind === "RELAY" ? "Relay size" : "Size as mounted"}
               </Text>
               {allowsInches(kind) && (
                 <SegmentedControl
@@ -363,6 +428,53 @@ function ComponentForm({
               <NumberInput label="Depth" {...len} {...form.getInputProps("depth")} />
             </SimpleGrid>
           </>
+        )}
+
+        {kind === "RELAY" && (
+          <Stack gap="xs">
+            <Switch
+              label="Base mount"
+              description="The relay plugs into a base (socket, its own part number) that mounts on the rail and takes the wiring. The size above is the relay's; it's drawn centred on the base."
+              {...form.getInputProps("attributes.baseMount", { type: "checkbox" })}
+            />
+            {v.attributes.baseMount && (
+              <>
+                <SimpleGrid cols={2}>
+                  <TextInput
+                    label="Base manufacturer"
+                    {...form.getInputProps("attributes.base.manufacturer")}
+                  />
+                  <TextInput
+                    label="Base part number"
+                    {...form.getInputProps("attributes.base.partNumber")}
+                  />
+                </SimpleGrid>
+                <SimpleGrid cols={3}>
+                  <NumberInput
+                    label="Base width"
+                    {...len}
+                    {...form.getInputProps("attributes.base.width")}
+                  />
+                  <NumberInput
+                    label="Base height"
+                    {...len}
+                    {...form.getInputProps("attributes.base.height")}
+                  />
+                  <NumberInput
+                    label="Base depth"
+                    {...len}
+                    {...form.getInputProps("attributes.base.depth")}
+                  />
+                </SimpleGrid>
+                <NumberInput
+                  label="Mounted depth"
+                  description="Base and relay together, from the platen to the top of the relay"
+                  {...len}
+                  {...form.getInputProps("attributes.mountedDepth")}
+                />
+              </>
+            )}
+          </Stack>
         )}
 
         {kind === "TERMINAL_BLOCK" && (
@@ -397,10 +509,10 @@ function ComponentForm({
           </SimpleGrid>
         )}
 
-        {(kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE") && (
+        {standardLike(kind) && (
           <SimpleGrid cols={2}>
             <TextInput
-              label="Input voltage"
+              label={kind === "RELAY" ? "Coil voltage" : "Input voltage"}
               placeholder="e.g. 24VDC, 230VAC"
               {...form.getInputProps("inputVoltage")}
             />
@@ -420,25 +532,30 @@ function ComponentForm({
         )}
 
         {/* ── Rail mounting ── */}
-        {(kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE") && (
+        {standardLike(kind) && (
           <>
             <Switch
               label="Mounts on DIN rail"
               {...form.getInputProps("railMount", { type: "checkbox" })}
             />
-            <Switch
-              label="Expandable"
-              description="Placed as a row of identical modules side by side (a count), like a terminal strip"
-              {...form.getInputProps("expandable", { type: "checkbox" })}
-            />
+            {canExpand(kind) && (
+              <Switch
+                label="Expandable"
+                description="Placed as a row of identical modules side by side (a count), like a terminal strip"
+                {...form.getInputProps("expandable", { type: "checkbox" })}
+              />
+            )}
           </>
         )}
-        {(isTerminal(kind) ||
-          ((kind === "STANDARD" || kind === "SAFETY" || kind === "FUSE") && v.railMount)) && (
+        {(isTerminal(kind) || (standardLike(kind) && v.railMount)) && (
           <SimpleGrid cols={2}>
             <NumberInput
               label="Rail edge offset"
-              description="From the part's top edge to the rail's top edge"
+              description={
+                kind === "RELAY" && v.attributes.baseMount
+                  ? "From the base's top edge to the rail's top edge"
+                  : "From the part's top edge to the rail's top edge"
+              }
               {...len}
               {...form.getInputProps("railEdgeOffset")}
             />

@@ -24,6 +24,7 @@ export const ComponentKind = z.enum([
   "STANDARD",
   "SAFETY",
   "FUSE",
+  "RELAY",
   "TERMINAL_BLOCK",
   "GROUND_TERMINAL",
   "GUTTER",

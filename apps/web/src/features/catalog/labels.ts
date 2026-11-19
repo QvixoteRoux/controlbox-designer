@@ -4,6 +4,7 @@ export const COMPONENT_KIND_LABELS: Record<ComponentKind, string> = {
   STANDARD: "Standard",
   SAFETY: "Safety",
   FUSE: "Fuse",
+  RELAY: "Relay",
   TERMINAL_BLOCK: "Terminal block",
   GROUND_TERMINAL: "Ground terminal",
   GUTTER: "Wire duct (gutter)",

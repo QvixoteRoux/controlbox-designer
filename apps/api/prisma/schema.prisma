@@ -67,6 +67,8 @@ enum ComponentKind {
   /// Safety devices (e-stops, safety relays…): the same fields as STANDARD, own colour.
   SAFETY
   FUSE
+  /// A relay, usually on a base (socket) typed in the same entry; drawn as one outline.
+  RELAY
   TERMINAL_BLOCK
   /// Green/yellow PE terminal: always 1 level.
   GROUND_TERMINAL

@@ -5,6 +5,7 @@ import {
   ComponentListItem,
   DEFAULT_STOCK_LENGTH,
   RAIL_WIDTH,
+  RelayAttributes,
 } from "@cabinet-planner/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addUser, buildTestApp, builtInRail, db, login, resetDb } from "../../test/helpers.js";
@@ -60,6 +61,58 @@ describe("the component catalog", () => {
   it("creates a gutter from its width only", async () => {
     const gutter = await add({ kind: "GUTTER", ...identity("WD-60"), width: 600 });
     expect(gutter).toMatchObject({ width: 600, height: 0, depth: 0 });
+  });
+
+  it("stores a relay on its base as one outline, keeping both as typed", async () => {
+    const relay = await add({
+      kind: "RELAY",
+      ...identity("RE-4C"),
+      inputVoltage: "24VDC",
+      width: 280,
+      height: 400,
+      depth: 360,
+      railMount: true,
+      railEdgeOffset: 200, // from the base's top edge
+      attributes: {
+        baseMount: true,
+        base: { manufacturer: "Europa", partNumber: "RB11S", width: 300, height: 380, depth: 280 },
+        mountedDepth: 650,
+      },
+    });
+    // Relay 10 mm taller than the base: the outline is 1 mm higher on each side.
+    expect(relay).toMatchObject({ width: 300, height: 400, depth: 650, railEdgeOffset: 210 });
+    expect(RelayAttributes.parse(relay.attributes)).toEqual({
+      baseMount: true,
+      relay: { width: 280, height: 400, depth: 360 },
+      base: { manufacturer: "Europa", partNumber: "RB11S", width: 300, height: 380, depth: 280 },
+      mountedDepth: 650,
+      baseRailEdgeOffset: 200,
+    });
+
+    const bare = await add({
+      kind: "RELAY",
+      ...identity("RE-1C"),
+      width: 130,
+      height: 300,
+      depth: 300,
+      attributes: { baseMount: false },
+    });
+    expect(bare).toMatchObject({ width: 130, height: 300, depth: 300, railMount: false });
+    expect(RelayAttributes.parse(bare.attributes)).toMatchObject({
+      base: null,
+      mountedDepth: null,
+    });
+  });
+
+  it("refuses a base-mounted relay without its base", async () => {
+    const res = await call(catalog, "POST", "/api/components", {
+      kind: "RELAY",
+      ...identity("RE-X"),
+      width: 280,
+      height: 400,
+      depth: 360,
+    });
+    expect(res.statusCode).toBe(400);
   });
 
   it("creates terminal blocks (1–4 levels) and ground terminals, always rail mounted", async () => {

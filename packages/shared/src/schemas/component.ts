@@ -60,6 +60,77 @@ const OptionalText = (max: number) =>
     .default(null)
     .transform((s) => (s === "" ? null : s));
 
+// ── Relays ──
+// A relay usually plugs into a base (socket, a second part number) that mounts on the rail and
+// takes the wiring (owner, 2026-11-18). Both are typed in the relay's catalog entry. On the
+// platen the pair is one box: the outline of base and relay together, the relay centred on the
+// base. The row's height / width / depth / rail offset hold that outline, so all the rail and
+// snap geometry works unchanged; `attributes` keeps the sizes as typed.
+
+/** A relay's base (socket). */
+export const RelayBase = z.strictObject({
+  manufacturer: Text(100),
+  partNumber: Text(100),
+  width: PositiveUnits,
+  height: PositiveUnits,
+  depth: PositiveUnits,
+});
+export type RelayBase = z.infer<typeof RelayBase>;
+
+/** What a relay row keeps in `attributes`, as typed, so the form can show it again. */
+export const RelayAttributes = z.strictObject({
+  /** The relay plugs into a base that mounts on the rail. */
+  baseMount: z.boolean(),
+  /** The relay's own size (the row's columns hold the outline with the base). */
+  relay: z.strictObject({ width: PositiveUnits, height: PositiveUnits, depth: PositiveUnits }),
+  base: RelayBase.nullable(),
+  /** Base and relay together, as mounted: typed, since the plug-in overlap varies by base. */
+  mountedDepth: PositiveUnits.nullable(),
+  /** From the base's top edge to the rail's top edge, as typed (base mounted, on a rail). */
+  baseRailEdgeOffset: NonNegativeUnits.nullable(),
+});
+export type RelayAttributes = z.infer<typeof RelayAttributes>;
+
+const RelayInputAttributes = z.strictObject({
+  baseMount: z.boolean().default(true),
+  base: RelayBase.nullable().default(null),
+  mountedDepth: PositiveUnits.nullable().default(null),
+});
+
+/**
+ * Relay on its base: the outline (the larger of the two in each direction) and where base and
+ * relay sit in it, both centred, unrotated (width along x). `baseTop` is the base's top edge
+ * below the outline's, for turning the base's rail offset into the outline's.
+ */
+export function relayOutline(
+  relay: { width: number; height: number },
+  base: { width: number; height: number },
+) {
+  const width = Math.max(relay.width, base.width);
+  const height = Math.max(relay.height, base.height);
+  const at = (b: { width: number; height: number }) => ({
+    x: (width - b.width) / 2,
+    y: (height - b.height) / 2,
+    width: b.width,
+    height: b.height,
+  });
+  return {
+    width,
+    height,
+    base: at(base),
+    relay: at(relay),
+    baseTop: Math.round((height - base.height) / 2),
+  };
+}
+
+/** A relay mounted on a base, from a part's kind and attributes; null for anything else. */
+export function relayOnBase(part: { kind: ComponentKind; attributes: unknown }) {
+  if (part.kind !== "RELAY") return null;
+  const a = RelayAttributes.safeParse(part.attributes);
+  if (!a.success || !a.data.baseMount || a.data.base === null) return null;
+  return { ...a.data, base: a.data.base, outline: relayOutline(a.data.relay, a.data.base) };
+}
+
 const identity = {
   typeId: Id.nullable().default(null),
   manufacturer: Text(100),
@@ -136,6 +207,28 @@ const FuseInput = z
     attributes: FuseAttributes,
   })
   .refine(railOffsetOnlyWhenRailMounted, railOffsetError);
+/** Relays: Standard fields for the relay itself, plus its base when base mounted (default). */
+const RelayInput = z
+  .object({
+    kind: z.literal("RELAY"),
+    ...identity,
+    ...electrical,
+    ...box,
+    railMount: mounting.railMount,
+    /** Base mounted: from the base's top edge; otherwise from the relay's. */
+    railEdgeOffset: mounting.railEdgeOffset,
+    snappable: mounting.snappable,
+    attributes: RelayInputAttributes.default({ baseMount: true, base: null, mountedDepth: null }),
+  })
+  .refine(railOffsetOnlyWhenRailMounted, railOffsetError)
+  .refine((c) => !c.attributes.baseMount || c.attributes.base !== null, {
+    message: "Fill in the base, or turn Base mount off",
+    path: ["attributes", "base"],
+  })
+  .refine((c) => !c.attributes.baseMount || c.attributes.mountedDepth !== null, {
+    message: "Required with a base",
+    path: ["attributes", "mountedDepth"],
+  });
 const TerminalBlockInput = z.object({
   kind: z.literal("TERMINAL_BLOCK"),
   ...identity,
@@ -172,6 +265,7 @@ export const ComponentInput = z.discriminatedUnion("kind", [
   StandardInput,
   SafetyInput,
   FuseInput,
+  RelayInput,
   TerminalBlockInput,
   GroundTerminalInput,
   GutterInput,
@@ -231,6 +325,44 @@ export function componentColumns(input: ComponentInput) {
         snappable: input.snappable,
         expandable: input.expandable,
       };
+    case "RELAY": {
+      const relay = { width: input.width, height: input.height, depth: input.depth };
+      const { baseMount, base: relayBase, mountedDepth } = input.attributes;
+      const offset = input.railMount ? input.railEdgeOffset : null;
+      const electricalColumns = {
+        inputVoltage: input.inputVoltage,
+        phases: input.phases,
+        railMount: input.railMount,
+        snappable: input.snappable,
+      };
+      if (!baseMount || relayBase === null || mountedDepth === null) {
+        const attributes: RelayAttributes = {
+          baseMount: false,
+          relay,
+          base: null,
+          mountedDepth: null,
+          baseRailEdgeOffset: null,
+        };
+        return { ...base, ...electricalColumns, ...relay, railEdgeOffset: offset, attributes };
+      }
+      const outline = relayOutline(relay, relayBase);
+      const attributes: RelayAttributes = {
+        baseMount: true,
+        relay,
+        base: relayBase,
+        mountedDepth,
+        baseRailEdgeOffset: offset,
+      };
+      return {
+        ...base,
+        ...electricalColumns,
+        width: outline.width,
+        height: outline.height,
+        depth: mountedDepth,
+        railEdgeOffset: offset === null ? null : offset + outline.baseTop,
+        attributes,
+      };
+    }
     case "TERMINAL_BLOCK":
     case "GROUND_TERMINAL":
       return {

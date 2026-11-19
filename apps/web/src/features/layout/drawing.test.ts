@@ -180,3 +180,36 @@ describe("letter pages", () => {
     );
   });
 });
+
+describe("relays on a base in the parts lists", () => {
+  const relayPart = part("RELAY", "RE-4C", {
+    attributes: {
+      baseMount: true,
+      relay: { width: 280, height: 400, depth: 360 },
+      base: { manufacturer: "Europa", partNumber: "RB11S", width: 300, height: 380, depth: 280 },
+      mountedDepth: 650,
+      baseRailEdgeOffset: 200,
+    },
+  });
+  const k1 = placement(20, { tag: "-K1", part: relayPart });
+  const k2 = placement(21, { tag: "-K2", part: relayPart });
+
+  it("lists the base under each relay on the full sheet", () => {
+    expect(legendRows([k1]).map((r) => [r.partNumber, r.quantity])).toEqual([
+      ["RE-4C", "1"],
+      ["RB11S", "1 (base)"],
+    ]);
+  });
+
+  it("counts identical bases together on the letter legend", () => {
+    expect(groupedLegend([k2, k1])).toEqual([
+      expect.objectContaining({ partNumber: "RE-4C", quantity: "2", tags: "-K1, -K2" }),
+      expect.objectContaining({
+        partNumber: "RB11S",
+        quantity: "2",
+        description: "Relay base",
+        tags: "-K1, -K2",
+      }),
+    ]);
+  });
+});

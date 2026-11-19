@@ -9,6 +9,7 @@ import {
   terminalLevels,
   placementBox,
   railChain,
+  relayOnBase,
   snapMove,
   boxesOverlap,
   snapToGrid,
@@ -418,6 +419,13 @@ export function PlacedShape({
   const base = colors.kind[p.part.kind];
   const stroke = selected ? colors.selected : warn ? colors.warn : base;
   const vertical = p.rotation === 90;
+  // A relay on its base: base and relay outlines, both centred in the box (turned with it).
+  const relay = relayOnBase(p.part);
+  const centred = (r: { width: number; height: number }) => {
+    const w = vertical ? r.height : r.width;
+    const h = vertical ? r.width : r.height;
+    return { x: (box.width - w) / 2, y: (box.height - h) / 2, width: w, height: h };
+  };
   // Rails and gutters add their cut length: "TS35x7.5 · 1200 mm / 47.24 in".
   const caption = isProfile(p.part.kind)
     ? `${p.tag ?? p.part.partNumber} · ${formatLength(footprint(p.part, p.length).width)}`
@@ -523,10 +531,17 @@ export function PlacedShape({
             dash={[6 * px, 4 * px]}
           />
         )}
+        {relay && (
+          <>
+            <Rect {...centred(relay.base)} stroke={base} strokeWidth={px} fill={`${base}22`} />
+            <Rect {...centred(relay.relay)} stroke={base} strokeWidth={1.5 * px} />
+          </>
+        )}
         <Rect
           width={box.width}
           height={box.height}
-          stroke={stroke}
+          // A relay on its base shows its two outlines; the box only when selected or warned.
+          stroke={relay && !selected && !warn ? undefined : stroke}
           strokeWidth={(selected ? 2.5 : 1.5) * px}
           dash={p.locked ? [4 * px, 3 * px] : undefined}
         />

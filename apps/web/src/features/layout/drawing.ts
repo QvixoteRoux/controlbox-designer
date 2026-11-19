@@ -4,6 +4,8 @@ import {
   isProfile,
   isStrip,
   profileDatum,
+  relayOnBase,
+  type RelayBase,
   toMm,
   type LayoutDetail,
   type Placement,
@@ -61,16 +63,31 @@ export function legendRows(placements: Placement[]): LegendRow[] {
     if (b.tag !== null) return 1;
     return a.part.partNumber.localeCompare(b.part.partNumber, undefined, { numeric: true });
   };
-  return [...placements].sort(byTag).map((p) => ({
-    tag: p.tag ?? "",
-    manufacturer: p.part.manufacturer,
-    partNumber: p.part.partNumber,
-    quantity: isProfile(p.part.kind)
-      ? formatLength(p.length ?? 0)
-      : isStrip(p.part)
-        ? `${p.count} pcs`
-        : "1",
-  }));
+  return [...placements].sort(byTag).flatMap((p) => {
+    const row = {
+      tag: p.tag ?? "",
+      manufacturer: p.part.manufacturer,
+      partNumber: p.part.partNumber,
+      quantity: isProfile(p.part.kind)
+        ? formatLength(p.length ?? 0)
+        : isStrip(p.part)
+          ? `${p.count} pcs`
+          : "1",
+    };
+    // A relay on a base: the base is a second part number, listed right under it.
+    const base = relayOnBase(p.part)?.base;
+    return base
+      ? [
+          row,
+          {
+            tag: row.tag,
+            manufacturer: base.manufacturer,
+            partNumber: base.partNumber,
+            quantity: "1 (base)",
+          },
+        ]
+      : [row];
+  });
 }
 
 /** The title block lines: label and value. */
@@ -255,6 +272,8 @@ export interface GroupedRow {
  */
 export function groupedLegend(placements: Placement[]): GroupedRow[] {
   const groups = new Map<string, Placement[]>();
+  // Relay bases: a part number of their own, counted across every relay that uses it.
+  const bases = new Map<string, { base: RelayBase; relays: Placement[] }>();
   for (const p of placements) {
     const key = [
       p.part.componentId,
@@ -263,12 +282,31 @@ export function groupedLegend(placements: Placement[]): GroupedRow[] {
       isProfile(p.part.kind) ? p.length : "",
     ].join("|");
     groups.set(key, [...(groups.get(key) ?? []), p]);
+    const base = relayOnBase(p.part)?.base;
+    if (base) {
+      const baseKey = `${base.manufacturer}|${base.partNumber}`;
+      const group = bases.get(baseKey) ?? { base, relays: [] };
+      group.relays.push(p);
+      bases.set(baseKey, group);
+    }
   }
   const numeric = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
+  const tagsOf = (ps: Placement[]) =>
+    ps
+      .flatMap((p) => (p.tag ? [p.tag] : []))
+      .sort(numeric)
+      .join(", ");
+  const baseRows = [...bases.values()].map(({ base, relays }) => ({
+    quantity: String(relays.length),
+    manufacturer: base.manufacturer,
+    partNumber: base.partNumber,
+    description: "Relay base",
+    tags: tagsOf(relays),
+    isBase: true,
+  }));
   return [...groups.values()]
     .map((ps) => {
       const first = ps[0]!;
-      const tags = ps.flatMap((p) => (p.tag ? [p.tag] : [])).sort(numeric);
       const quantity = isProfile(first.part.kind)
         ? `${ps.length} × ${formatLength(first.length ?? 0)}`
         : isStrip(first.part)
@@ -279,15 +317,20 @@ export function groupedLegend(placements: Placement[]): GroupedRow[] {
         manufacturer: first.part.manufacturer,
         partNumber: first.part.partNumber,
         description: first.part.description ?? "",
-        tags: tags.join(", "),
+        tags: tagsOf(ps),
+        isBase: false,
       };
     })
+    .concat(baseRows)
     .sort(
       (a, b) =>
         (a.tags === "" ? 1 : 0) - (b.tags === "" ? 1 : 0) ||
         numeric(a.tags, b.tags) ||
+        // A base right after the relays it serves.
+        Number(a.isBase) - Number(b.isBase) ||
         numeric(a.partNumber, b.partNumber),
-    );
+    )
+    .map(({ isBase: _isBase, ...row }) => row);
 }
 
 /** Legend pages (portrait): columns in output pixels, and how many rows fit on a page. */
