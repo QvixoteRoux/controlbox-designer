@@ -4,6 +4,8 @@ import {
   layoutWarnings,
   placementBox,
   railChain,
+  WIRE_SPACE,
+  wireZones,
   rotateInPlace,
   snapToGrid,
   type PartGeometry,
@@ -159,5 +161,54 @@ describe("railChain", () => {
 
   it("is empty for a part that isn't on a rail", () => {
     expect(railChain([R, at(2, contactor, 0, 0), on(3, 0)], 2)).toEqual([]);
+  });
+});
+
+describe("wire space around terminals", () => {
+  const terminal: PartGeometry = {
+    kind: "TERMINAL_BLOCK",
+    width: 51,
+    height: 600,
+    railMount: true,
+    railEdgeOffset: 125,
+    attributes: { levels: 1 },
+  };
+  const platen = { width: 10000, height: 10000 };
+  // Horizontal rail at y = 3000; a strip of 10 terminals on it (top edge at y = 2875).
+  const R = at(1, rail, 1000, 3000, { length: 5000 });
+  const strip = at(2, terminal, 1000, 2875, { railId: 1, count: 10 });
+
+  it("keeps 40 mm free above and below a strip, along its whole length", () => {
+    expect(wireZones(strip)).toEqual([
+      { x: 1000, y: 2875 - WIRE_SPACE, width: 510, height: WIRE_SPACE },
+      { x: 1000, y: 2875 + 600, width: 510, height: WIRE_SPACE },
+    ]);
+    expect(wireZones(at(3, contactor, 0, 0))).toEqual([]);
+  });
+
+  it("turns with the strip on a vertical rail: right and left of it", () => {
+    const vertical = at(4, terminal, 1000, 1000, { rotation: 90, count: 2 });
+    expect(wireZones(vertical)).toEqual([
+      { x: 1600, y: 1000, width: WIRE_SPACE, height: 102 },
+      { x: 600, y: 1000, width: WIRE_SPACE, height: 102 },
+    ]);
+  });
+
+  it("flags a gutter in the wire space, on both of them", () => {
+    // A duct 30 mm above the terminals' top edge: inside the 40 mm.
+    const duct = at(5, gutter, 1000, 2875 - 300 - 600, { length: 5000 });
+    const w = layoutWarnings([R, strip, duct], platen);
+    expect(w.get(strip.id)?.wireSpace).toEqual([duct.id]);
+    expect(w.get(duct.id)?.wireSpace).toEqual([strip.id]);
+    expect(w.get(strip.id)?.overlaps).toEqual([]);
+  });
+
+  it("leaves exactly 40 mm clear alone; a taller terminal needs its own 40 mm", () => {
+    const duct = at(5, gutter, 1000, 2875 - WIRE_SPACE - 600, { length: 5000 });
+    const taller = at(6, { ...terminal, height: 900 }, 1510, 2725, { railId: 1 });
+    const w = layoutWarnings([R, strip, duct, taller], platen);
+    expect(w.get(strip.id)?.wireSpace).toEqual([]);
+    // The taller terminal sticks up 15 mm more, so its own 40 mm do reach the duct.
+    expect(w.get(duct.id)?.wireSpace).toEqual([taller.id]);
   });
 });

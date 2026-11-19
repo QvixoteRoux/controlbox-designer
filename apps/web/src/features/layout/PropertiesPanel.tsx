@@ -13,6 +13,7 @@ import {
   stockLength,
   terminalLevels,
   toMm,
+  WIRE_SPACE,
   toUnits,
   type LayoutWarnings,
   type Placement,
@@ -105,6 +106,13 @@ export function PropertiesPanel({
               <List.Item>Longer than the {formatMm(stock)} stock length</List.Item>
             )}
             {warnings.offRail && <List.Item>Hangs past the end of its rail</List.Item>}
+            {warnings.wireSpace.length > 0 && (
+              <List.Item>
+                {isTerminalKind(p.part.kind)
+                  ? `Its wire space (${toMm(WIRE_SPACE)} mm) has ${warnings.wireSpace.map(nameOf).join(", ")} in it`
+                  : `In the wire space of ${warnings.wireSpace.map(nameOf).join(", ")}`}
+              </List.Item>
+            )}
           </List>
         </Alert>
       )}

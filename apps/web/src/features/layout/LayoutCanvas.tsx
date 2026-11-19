@@ -9,6 +9,7 @@ import {
   terminalLevels,
   placementBox,
   railChain,
+  wireZones,
   relayOnBase,
   snapMove,
   boxesOverlap,
@@ -535,6 +536,21 @@ export function PlacedShape({
             dash={[6 * px, 4 * px]}
           />
         )}
+        {/* Wire space above and below terminals: dashed, not part of the part. */}
+        {wireZones(p).map((z, i) => (
+          <Rect
+            key={`wire${i}`}
+            x={z.x - box.x}
+            y={z.y - box.y}
+            width={z.width}
+            height={z.height}
+            stroke={warn ? colors.warn : base}
+            strokeWidth={px}
+            dash={[5 * px, 4 * px]}
+            opacity={0.7}
+            listening={false}
+          />
+        ))}
         {relay && (
           <>
             <Rect {...centred(relay.base)} stroke={base} strokeWidth={px} fill={`${base}22`} />

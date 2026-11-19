@@ -1,6 +1,6 @@
 import { stockLength } from "./schemas/component.js";
 import type { ComponentKind } from "./schemas/enums.js";
-import type { Rotation } from "./schemas/placement.js";
+import { isTerminalKind, type Rotation } from "./schemas/placement.js";
 
 // Platen layout geometry (guidelines/platen-editor.md). Platen coordinates: origin at the
 // platen's top-left, +x right, +y down, in 0.1 mm. A placement's x / y is the top-left corner
@@ -222,6 +222,40 @@ export const boxInside = (b: Box, area: { width: number; height: number }) =>
 const overlapExpected = (a: PartGeometry, b: PartGeometry) =>
   (a.kind === "RAIL" && b.railMount) || (b.kind === "RAIL" && a.railMount);
 
+/**
+ * Wire space (owner, 2026-11-18): room kept free above and below every terminal strip for the
+ * wires, ferrules and wire labels: 40 mm. Not stored; drawn dashed and checked like a part.
+ */
+export const WIRE_SPACE = 400;
+
+/**
+ * A terminal strip's wire zones: WIRE_SPACE beyond its top and bottom edges, as long as the
+ * strip. On a vertical rail the part is turned 90° clockwise, so they're right and left of it.
+ * Other parts have none.
+ */
+export function wireZones(p: Omit<PlacedGeometry, "id">): Box[] {
+  if (!isTerminalKind(p.part.kind)) return [];
+  const b = placementBox(p);
+  return p.rotation === 90
+    ? [
+        { x: b.x + b.width, y: b.y, width: WIRE_SPACE, height: b.height },
+        { x: b.x - WIRE_SPACE, y: b.y, width: WIRE_SPACE, height: b.height },
+      ]
+    : [
+        { x: b.x, y: b.y - WIRE_SPACE, width: b.width, height: WIRE_SPACE },
+        { x: b.x, y: b.y + b.height, width: b.width, height: WIRE_SPACE },
+      ];
+}
+
+/**
+ * Whether `other`'s body in a terminal's wire zone is a clash. Not for other terminals on the
+ * same rail (their wires run side by side), nor the terminal's own rail.
+ */
+const wireClash = (terminal: PlacedGeometry, other: PlacedGeometry) =>
+  other.id !== terminal.id &&
+  other.id !== terminal.railId &&
+  !(isTerminalKind(other.part.kind) && other.railId != null && other.railId === terminal.railId);
+
 export interface LayoutWarnings {
   /** Sticks out past the platen. */
   outside: boolean;
@@ -231,10 +265,16 @@ export interface LayoutWarnings {
   tooLong: boolean;
   /** A part on a rail that hangs past the rail's ends (e.g. after the rail was shortened). */
   offRail: boolean;
+  /**
+   * Wire space clashes, both ways: for a terminal, the parts inside its wire zones; for any
+   * other part, the terminals whose wire zones it's in.
+   */
+  wireSpace: number[];
 }
 
 export const hasWarning = (w: LayoutWarnings | undefined) =>
-  w !== undefined && (w.outside || w.overlaps.length > 0 || w.tooLong || w.offRail);
+  w !== undefined &&
+  (w.outside || w.overlaps.length > 0 || w.tooLong || w.offRail || w.wireSpace.length > 0);
 
 /** Warnings per placement id. They're shown, never enforced. */
 export function layoutWarnings(
@@ -243,6 +283,18 @@ export function layoutWarnings(
 ): Map<number, LayoutWarnings> {
   const boxes = placements.map((p) => ({ p, box: placementBox(p) }));
   const byId = new Map(placements.map((p) => [p.id, p]));
+  // Terminal → the parts in its wire zones.
+  const clashes = new Map<number, number[]>();
+  for (const { p } of boxes) {
+    const zones = wireZones(p);
+    if (zones.length === 0) continue;
+    clashes.set(
+      p.id,
+      boxes
+        .filter((o) => wireClash(p, o.p) && zones.some((z) => boxesOverlap(z, o.box)))
+        .map((o) => o.p.id),
+    );
+  }
   const result = new Map<number, LayoutWarnings>();
   for (const { p, box } of boxes) {
     const stock = stockLength(p.part);
@@ -256,6 +308,10 @@ export function layoutWarnings(
         .map((o) => o.p.id),
       tooLong: stock !== null && p.length !== null && p.length > stock,
       offRail: rail !== undefined && offItsRail(p, rail),
+      wireSpace: [
+        ...(clashes.get(p.id) ?? []),
+        ...[...clashes].filter(([, ids]) => ids.includes(p.id)).map(([terminal]) => terminal),
+      ],
     });
   }
   return result;

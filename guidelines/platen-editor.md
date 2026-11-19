@@ -81,6 +81,7 @@ A part on a rail that hangs past the rail's end (after shortening the rail) gets
 ## Checks (warnings, not blocks)
 
 - Overlapping bounding boxes are highlighted in red.
+- **Wire space** (owner, 2026-11-18): every terminal strip (TERMINAL_BLOCK and GROUND_TERMINAL) keeps **40 mm** free above and below it for wires, ferrules and wire labels (`WIRE_SPACE`, `wireZones()` in `layout.ts`); on a vertical rail that's right and left of it. The zones aren't stored or part of the part's box (snapping ignores them); they're drawn dashed. Any other part's body inside a zone is a clash, flagged on both (`wireSpace` in the warnings): a duct closer than 40 mm, a part on the next rail, a taller part beside the strip. Zones overlapping each other don't count, nor the strip's own rail or other terminals on the same rail.
 - A rail or gutter longer than its catalog stock length (2000 mm by default) is flagged.
 - A placement outside the platen is highlighted.
 - A component deeper than the cabinet depth minus the platen offset is flagged once a platen offset field exists.
