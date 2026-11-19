@@ -383,7 +383,7 @@ export function LayoutCanvas(props: Props) {
   );
 }
 
-function PlacedShape({
+export function PlacedShape({
   placement: p,
   warn,
   selected,

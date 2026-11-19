@@ -19,6 +19,13 @@
 - Measured to the profile's **start end and centreline** (`profileDatum()` in `layout.ts`): horizontal, X to the left end and Y to the centreline; vertical, X to the centreline and Y to the top end. Equal values share one line; each value gets its own level, nearest values closest to the platen.
 - Labels in both units (`formatLength()`); Y labels read bottom to top. They're computed from the layout as drawn, so they follow a drag. Nothing is stored. "Fit" leaves a wider margin while they're shown.
 
+## Export (owner request 2026-11-18)
+
+- **Export PNG** in the toolbar saves the platen as a drawing sheet: `Project-Machine-Rev001-Cabinet1-platen.png`. Works on released revisions too (they draw from their snapshots).
+- The sheet: white background; the platen with its 10 mm grid, every part (warnings highlighted, nothing selected), and the rail and gutter **dimensions** (always, whatever the toolbar switch says). A **parts legend** on the right (tag, manufacturer, part number, qty / length; tagged parts first in tag order) and a **title block** underneath (project, machine, revision, cabinet, platen size, export time in UTC).
+- **10 px per mm** (1 output pixel per 0.1 mm). Text is a **fixed real size**, not screen pixels: the shapes are drawn with `px = DRAWING_PX` (0.27 mm), so part captions are 3.5 mm, rail captions 3 mm and dimension labels 2.7 mm; legend and title text 3 mm. All in `apps/web/src/features/layout/drawing.ts`; change `DRAWING_PX` to scale every drawing text and line weight together.
+- Rendered off screen (`PlatenExport.tsx`) at 1/10 scale and blown up by `toBlob`, so only the export allocates the full-size canvas. Very large platens make large images (600 × 800 mm ≈ 7000 × 9000 px).
+
 ## Placing and moving
 
 - Drag a component from the list onto the platen to create a placement.

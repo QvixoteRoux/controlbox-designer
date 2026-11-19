@@ -1,10 +1,7 @@
 import { formatLength, isProfile, profileDatum, type Placement } from "@cabinet-planner/shared";
 import { Arrow, Group, Line, Text } from "react-konva";
 import type { kindColors } from "./colors";
-
-/** Screen pixels: first dimension line's distance from the platen edge, and the step between. */
-const FIRST = 18;
-const STEP = 16;
+import { DIM_FIRST, DIM_STEP, dimensionValues } from "./drawing";
 
 /**
  * X / Y dimension lines for every rail and gutter, outside the platen: X dimensions above its
@@ -22,8 +19,7 @@ export function Dimensions({
   colors: ReturnType<typeof kindColors>;
 }) {
   const datums = placements.filter((p) => isProfile(p.part.kind)).map((p) => profileDatum(p));
-  const xs = [...new Set(datums.map((d) => d.x))].filter((x) => x > 0).sort((a, b) => a - b);
-  const ys = [...new Set(datums.map((d) => d.y))].filter((y) => y > 0).sort((a, b) => a - b);
+  const { x: xs, y: ys } = dimensionValues(placements);
   const fontSize = 10 * px;
   const stroke = colors.dimension;
   const arrow = {
@@ -41,7 +37,7 @@ export function Dimensions({
   return (
     <Group listening={false}>
       {xs.map((x, i) => {
-        const at = -(FIRST + i * STEP) * px;
+        const at = -(DIM_FIRST + i * DIM_STEP) * px;
         const from = datums
           .filter((d) => d.x === x)
           .reduce((top, d) => Math.min(top, d.y), Infinity);
@@ -64,7 +60,7 @@ export function Dimensions({
         );
       })}
       {ys.map((y, i) => {
-        const at = -(FIRST + i * STEP) * px;
+        const at = -(DIM_FIRST + i * DIM_STEP) * px;
         const from = datums
           .filter((d) => d.y === y)
           .reduce((left, d) => Math.min(left, d.x), Infinity);

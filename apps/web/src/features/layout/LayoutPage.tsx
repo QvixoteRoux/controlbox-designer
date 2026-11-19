@@ -32,6 +32,7 @@ import {
   useComputedColorScheme,
   useMantineTheme,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
@@ -42,9 +43,11 @@ import { cabinetRoute, revisionPath, type RevisionRef } from "../cabinets/api";
 import { StatusBadge } from "../projects/RevisionBadge";
 import { layoutQuery } from "./api";
 import { kindColors } from "./colors";
+import { exportFileName } from "./drawing";
 import { GRID, LayoutCanvas } from "./LayoutCanvas";
 import { changedFields, followMoves, movesToChanges } from "./moves";
 import { PartList } from "./PartList";
+import { PlatenExport } from "./PlatenExport";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { useLayoutHistory } from "./useLayoutHistory";
 
@@ -82,6 +85,7 @@ function LayoutEditor({
   const [selection, setSelection] = useState<number[]>([]);
   const [gridSnap, setGridSnap] = useState(true);
   const [dimensions, setDimensions] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [fitSignal, setFitSignal] = useState(0);
   const colors = kindColors(useMantineTheme(), useComputedColorScheme("light") === "dark");
 
@@ -283,6 +287,34 @@ function LayoutEditor({
           <Button size="xs" variant="default" onClick={() => setFitSignal((n) => n + 1)}>
             Fit
           </Button>
+          {platen && (
+            <Tooltip label="PNG drawing with dimensions, parts legend and title block (10 px/mm)">
+              <Button
+                size="xs"
+                variant="default"
+                loading={exporting}
+                onClick={() => setExporting(true)}
+              >
+                Export PNG
+              </Button>
+            </Tooltip>
+          )}
+          {exporting && (
+            <PlatenExport
+              layout={{ ...layout, placements }}
+              onDone={(result) => {
+                setExporting(false);
+                if (result instanceof Error) {
+                  notifications.show({
+                    color: "red",
+                    message: `Export failed: ${result.message}`,
+                  });
+                } else {
+                  downloadBlob(result, exportFileName(layout));
+                }
+              }}
+            />
+          )}
         </Group>
       </Group>
 
@@ -387,6 +419,16 @@ function LayoutEditor({
       )}
     </Box>
   );
+}
+
+/** Saves a file through a temporary link. */
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function Shortcuts({ editable }: { editable: boolean }) {
