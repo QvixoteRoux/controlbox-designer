@@ -46,7 +46,7 @@ Decisions that shape the product, grouped by area. The rules they led to are in 
 - Dragging a part on a rail moves the unbroken row it's in; middle-drag moves only that part (2026-11-18).
 - Rail and gutter captions show the cut length in mm and inches (2026-11-18).
 - Dimensions (toolbar toggle, off by default) measure from the platen's top-left origin to each rail's or gutter's start end and centreline, in mm and inches (2026-11-18).
-- 40 mm of wire space is kept free above and below terminal strips; this applies to both terminal kinds (assumption, told to the owner, 2026-11-18).
+- 40 mm of wire space is kept free above and below terminal strips; this applies to both terminal kinds, ground terminals included (2026-11-18, confirmed by the owner the same day).
 
 ## Repository
 

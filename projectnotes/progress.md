@@ -36,3 +36,4 @@ What was built or changed, oldest first, with the commit. Details of each rule l
 - `b267f5b` 40 mm wire space above and below terminal strips, with warnings.
 - Second dev machine brought up to date; snapshot migrations checked on a copy of a database with a released revision (25 / 25 pass). Checks: 315 tests pass.
 - `projectnotes/` started (this folder).
+- `4aee72d`, `70531e7` README Features rewritten; `CHANGELOG.md` added (upgrade steps, then each change with its commit).

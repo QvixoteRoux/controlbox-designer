@@ -7,7 +7,6 @@ Things to decide, build or check. Move an item to [progress.md](progress.md) (do
 - **End plates for terminal strips:** usually one per strip or group, vendor-specific (e.g. Weidmüller WAP 2.5-10, 1.5 mm). Per-strip switch with a thickness in the catalog, or a separate catalog part?
 - **Arrow-key nudges and rows:** dragging moves a part's whole row on a rail; nudging only moves the selection. Should nudges move the row too?
 - **Stacking as a tower:** parts mounted on top of each other aren't modelled. "Stackable" is reserved for it.
-- **Wire space:** 40 mm above and below terminal strips, for both terminal kinds. The kinds it applies to were an assumption; confirm.
 
 ## To build
 
@@ -23,9 +22,11 @@ Built on 2026-11-18 and covered by tests, but not yet looked at:
 - [ ] Type fill colours, especially dark ones
 - [ ] Collapsing and searching the part list groups
 - [ ] Dimensions with several rails, including labels close together
-- [ ] Export: Letter pages and Full size PNG
-- [ ] A relay with its base
-- [ ] Copy / paste, including a rail with its parts
+- [x] Export: Letter pages (checked by the owner 2026-11-18)
+- [ ] Export: Full size PNG
+- [x] A relay with its base (checked by the owner 2026-11-18)
+- [x] Copy / paste (checked by the owner 2026-11-18)
+- [ ] Copy / paste of a rail with its parts
 - [ ] Wire space zones and warnings
 - [ ] Middle-drag moving a single part out of a row
 
