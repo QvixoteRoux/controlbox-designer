@@ -21,10 +21,14 @@
 
 ## Export (owner request 2026-11-18)
 
-- **Export PNG** in the toolbar saves the platen as a drawing sheet: `Project-Machine-Rev001-Cabinet1-platen.png`. Works on released revisions too (they draw from their snapshots).
-- The sheet: white background; the platen with its 10 mm grid, every part (warnings highlighted, nothing selected), and the rail and gutter **dimensions** (always, whatever the toolbar switch says). A **parts legend** on the right (tag, manufacturer, part number, qty / length; tagged parts first in tag order) and a **title block** underneath (project, machine, revision, cabinet, platen size, export time in UTC).
-- **10 px per mm** (1 output pixel per 0.1 mm). Text is a **fixed real size**, not screen pixels: the shapes are drawn with `px = DRAWING_PX` (0.27 mm), so part captions are 3.5 mm, rail captions 3 mm and dimension labels 2.7 mm; legend and title text 3 mm. All in `apps/web/src/features/layout/drawing.ts`; change `DRAWING_PX` to scale every drawing text and line weight together.
-- Rendered off screen (`PlatenExport.tsx`) at 1/10 scale and blown up by `toBlob`, so only the export allocates the full-size canvas. Very large platens make large images (600 × 800 mm ≈ 7000 × 9000 px).
+- The toolbar **Export** menu has two PNG exports. Both work on released revisions (they draw from their snapshots) and always include the rail and gutter **dimensions**, whatever the toolbar switch says. Parts are drawn with warnings highlighted and nothing selected, on white.
+- **Letter pages** (owner, 2026-11-18), for printing: letter at 300 dpi (2550 × 3300 px), one PNG per page (`…-platen-letter-1.png`, `-2`…).
+  - Page 1: the drawing at the **largest standard scale that fits** (1:1, 1:2, 1:5, 1:10, 1:15, 1:20, 1:25, 1:50, 1:100), with its dimensions and size label, centred above the title block. Orientation is automatic: whichever of portrait / landscape allows the larger scale (portrait on a tie). The scale is printed in the title block, so the print can be measured.
+  - Text is a **fixed size on paper**: one shape "px" = `PAPER_PX_MM` (0.17 mm), so part captions print 2.2 mm high, rail captions 1.9 mm and dimension labels 1.7 mm at any scale.
+  - Page 2 onwards (portrait): the **grouped parts legend**: one row per part number (rails and gutters also per cut length) with the quantity (strips add up their modules; profiles "2 × 1040 mm / 40.94 in"), manufacturer, part number, description and tags. Tagged groups first. Long legends continue on further pages.
+  - Every page has a title block: project, cabinet, machine, platen size, revision, scale / page number, export time (UTC).
+- **Full size**: one sheet at **10 px per mm** (`Project-Machine-Rev001-Cabinet1-platen.png`) with the per-placement legend on the right and the title block underneath. Text is a fixed size on the platen: `DRAWING_PX` (0.27 mm), so part captions are 3.5 mm. Rendered off screen at 1/10 scale and enlarged by `toBlob`, so only the export allocates the full-size canvas (600 × 800 mm ≈ 7000 × 9000 px).
+- Sizes live in `apps/web/src/features/layout/drawing.ts`: change `PAPER_PX_MM` (letter) or `DRAWING_PX` (full size) to scale every drawing text and line weight together. Rendering is in `PlatenExport.tsx` (one hidden Konva stage per page).
 
 ## Placing and moving
 

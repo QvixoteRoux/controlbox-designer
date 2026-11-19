@@ -5,6 +5,14 @@ import {
   SHEET,
   dimensionBand,
   dimensionValues,
+  drawingPage,
+  groupedLegend,
+  LEGEND_PAGE,
+  legendPages,
+  letterFileName,
+  PAPER_PX_MM,
+  pagePxPerUnit,
+  pageDrawingPx,
   exportFileName,
   legendRows,
   legendWidth,
@@ -116,5 +124,59 @@ describe("title block and file name", () => {
       Platen: "600 × 800 mm",
       Exported: "2026-11-18 21:30",
     });
+  });
+});
+
+describe("letter pages", () => {
+  it("draws a 1120 × 1420 mm platen at 1:10 portrait", () => {
+    const page = drawingPage({ width: 11200, height: 14200 }, [rail]);
+    expect(page).toMatchObject({ orientation: "portrait", scale: 10 });
+    expect(page.page).toEqual({ width: 2550, height: 3300 });
+  });
+
+  it("turns a wide platen landscape when that allows a larger scale", () => {
+    expect(drawingPage({ width: 12000, height: 6000 }, [])).toMatchObject({
+      orientation: "landscape",
+      scale: 5,
+    });
+  });
+
+  it("prints text the same size on paper at any scale", () => {
+    for (const scale of [5, 10, 20]) {
+      // 13 px caption: px in platen units × output px per unit → paper mm.
+      const paperMm = (13 * pageDrawingPx(scale) * pagePxPerUnit(scale) * 25.4) / 300;
+      expect(paperMm).toBeCloseTo(13 * PAPER_PX_MM, 5);
+    }
+  });
+
+  it("groups identical parts, adding up strips and keeping rail lengths apart", () => {
+    const ib16 = (id: number, tag: string | null) =>
+      placement(id, { tag, part: part("STANDARD", "5069-IB16") });
+    const rows = groupedLegend([
+      ib16(10, null),
+      ib16(11, "-A2"),
+      ib16(12, "-A1"),
+      strip,
+      placement(5, { count: 8, part: part("TERMINAL_BLOCK", "WDU 2.5") }),
+      rail,
+      placement(6, { part: part("RAIL", "TS35"), length: 12000 }),
+      placement(7, { part: part("RAIL", "TS35"), length: 2000 }),
+    ]);
+    expect(rows).toEqual([
+      expect.objectContaining({ partNumber: "5069-IB16", quantity: "3", tags: "-A1, -A2" }),
+      expect.objectContaining({ partNumber: "TS35", quantity: "2 × 1200 mm / 47.24 in" }),
+      expect.objectContaining({ partNumber: "TS35", quantity: "1 × 200 mm / 7.87 in" }),
+      expect.objectContaining({ partNumber: "WDU 2.5", quantity: "20 pcs" }),
+    ]);
+  });
+
+  it("splits a long legend over pages, and always has one page", () => {
+    const row = { quantity: "1", manufacturer: "", partNumber: "", description: "", tags: "" };
+    const rows = Array.from({ length: LEGEND_PAGE.rowsPerPage + 1 }, () => row);
+    expect(legendPages(rows).map((p) => p.length)).toEqual([LEGEND_PAGE.rowsPerPage, 1]);
+    expect(legendPages([])).toEqual([[]]);
+    expect(letterFileName(layout([]), 2)).toBe(
+      "Line_4_Retrofit-Press-Rev001-Cabinet2-platen-letter-2.png",
+    );
   });
 });

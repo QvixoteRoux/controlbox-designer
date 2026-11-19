@@ -29,6 +29,7 @@ import {
   Text,
   Title,
   Tooltip,
+  Menu,
   useComputedColorScheme,
   useMantineTheme,
 } from "@mantine/core";
@@ -43,11 +44,10 @@ import { cabinetRoute, revisionPath, type RevisionRef } from "../cabinets/api";
 import { StatusBadge } from "../projects/RevisionBadge";
 import { layoutQuery } from "./api";
 import { kindColors } from "./colors";
-import { exportFileName } from "./drawing";
 import { GRID, LayoutCanvas } from "./LayoutCanvas";
 import { changedFields, followMoves, movesToChanges } from "./moves";
 import { PartList } from "./PartList";
-import { PlatenExport } from "./PlatenExport";
+import { PlatenExport, type ExportKind } from "./PlatenExport";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { useLayoutHistory } from "./useLayoutHistory";
 
@@ -85,7 +85,7 @@ function LayoutEditor({
   const [selection, setSelection] = useState<number[]>([]);
   const [gridSnap, setGridSnap] = useState(true);
   const [dimensions, setDimensions] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<ExportKind | null>(null);
   const [fitSignal, setFitSignal] = useState(0);
   const colors = kindColors(useMantineTheme(), useComputedColorScheme("light") === "dark");
 
@@ -288,29 +288,41 @@ function LayoutEditor({
             Fit
           </Button>
           {platen && (
-            <Tooltip label="PNG drawing with dimensions, parts legend and title block (10 px/mm)">
-              <Button
-                size="xs"
-                variant="default"
-                loading={exporting}
-                onClick={() => setExporting(true)}
-              >
-                Export PNG
-              </Button>
-            </Tooltip>
+            <Menu position="bottom-end" withinPortal>
+              <Menu.Target>
+                <Button size="xs" variant="default" loading={exporting !== null}>
+                  Export
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item onClick={() => setExporting("letter")}>
+                  <Text size="sm">Letter pages (PNG)</Text>
+                  <Text size="xs" c="dimmed">
+                    Printable: drawing at a standard scale, parts list on page 2
+                  </Text>
+                </Menu.Item>
+                <Menu.Item onClick={() => setExporting("full")}>
+                  <Text size="sm">Full size (PNG)</Text>
+                  <Text size="xs" c="dimmed">
+                    One large sheet at 10 px/mm with legend and title block
+                  </Text>
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           )}
           {exporting && (
             <PlatenExport
               layout={{ ...layout, placements }}
+              kind={exporting}
               onDone={(result) => {
-                setExporting(false);
+                setExporting(null);
                 if (result instanceof Error) {
                   notifications.show({
                     color: "red",
                     message: `Export failed: ${result.message}`,
                   });
                 } else {
-                  downloadBlob(result, exportFileName(layout));
+                  result.forEach((file) => downloadBlob(file.blob, file.name));
                 }
               }}
             />
