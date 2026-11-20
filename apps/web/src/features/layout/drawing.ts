@@ -1,4 +1,5 @@
 import {
+  faceNeighbours,
   formatLength,
   formatRev,
   isProfile,
@@ -40,6 +41,39 @@ export function dimensionValues(placements: Placement[]) {
 /** Room the dimension lines take outside the platen edge for `levels` lines, in platen units. */
 export const dimensionBand = (levels: number, px: number) =>
   levels === 0 ? 0 : (DIM_FIRST + (levels - 1) * DIM_STEP + 16) * px;
+
+/** "Platen W × H mm" under the platen: the room it takes, in px. */
+export const PLATEN_LABEL = 20;
+/** The cabinet faces around the platen: it's seen from the front, like FRONT. */
+export const PLATEN_SIDES = faceNeighbours("FRONT");
+/** Side labels (TOP, LEFT, … around the platen): text size and gap, in px. */
+export const SIDE_FONT = 12;
+export const SIDE_GAP = 6;
+
+/**
+ * Distance from each platen edge to its side label, in platen units: past the dimension lines
+ * above and left (when shown), past the size label below.
+ */
+export function sideLabelGaps(dims: { x: number[]; y: number[] } | null, px: number) {
+  return {
+    top: (dims ? dimensionBand(dims.x.length, px) : 0) + SIDE_GAP * px,
+    left: (dims ? dimensionBand(dims.y.length, px) : 0) + SIDE_GAP * px,
+    right: SIDE_GAP * px,
+    bottom: PLATEN_LABEL * px + SIDE_GAP * px,
+  };
+}
+
+/** Room everything outside the platen takes on each side (dimensions, labels), in platen units. */
+export function platenBands(placements: Placement[], px: number) {
+  const gaps = sideLabelGaps(dimensionValues(placements), px);
+  const font = SIDE_FONT * px;
+  return {
+    top: gaps.top + font,
+    left: gaps.left + font,
+    right: gaps.right + font,
+    bottom: gaps.bottom + font,
+  };
+}
 
 /** One row of the parts legend. */
 export interface LegendRow {
@@ -130,20 +164,16 @@ export function sheetLayout(
   titleCount: number,
   px = DRAWING_PX,
 ) {
-  const dims = dimensionValues(placements);
-  const origin = {
-    x: SHEET.margin + dimensionBand(dims.y.length, px),
-    y: SHEET.margin + dimensionBand(dims.x.length, px),
-  };
-  const platenLabel = 20 * px; // "Platen W × H mm" under the platen
+  const bands = platenBands(placements, px);
+  const origin = { x: SHEET.margin + bands.left, y: SHEET.margin + bands.top };
   const legend = {
-    x: origin.x + platen.width + SHEET.gap,
+    x: origin.x + platen.width + bands.right + SHEET.gap,
     y: origin.y,
     height: SHEET.headingFont + SHEET.row * (legendCount + 1) + SHEET.row / 2,
   };
   const title = {
     x: origin.x,
-    y: origin.y + Math.max(platen.height + platenLabel, legend.height) + SHEET.gap,
+    y: origin.y + Math.max(platen.height + bands.bottom, legend.height) + SHEET.gap,
     width: SHEET.titleWidth,
     height: SHEET.row * titleCount + SHEET.row,
   };
@@ -213,22 +243,21 @@ const pageSize = (o: Orientation) =>
     : { width: LETTER.height, height: LETTER.width };
 
 /**
- * The drawing page: the largest standard scale at which the platen, its dimension lines and
- * its size label fit on a letter page above the title block, in the orientation that allows
+ * The drawing page: the largest standard scale at which the platen, its dimension lines, its
+ * size label and its side labels fit on a letter page above the title block, in the orientation that allows
  * the larger scale (portrait on a tie). Positions in output pixels; `origin` is the platen's
  * top-left corner. Falls back to the smallest scale even if it overflows.
  */
 export function drawingPage(platen: { width: number; height: number }, placements: Placement[]) {
-  const dims = dimensionValues(placements);
   const fit = (orientation: Orientation, scale: number) => {
     const page = pageSize(orientation);
     const px = pageDrawingPx(scale);
     const k = pagePxPerUnit(scale);
-    const left = dimensionBand(dims.y.length, px) * k;
-    const top = dimensionBand(dims.x.length, px) * k;
-    const label = 20 * px * k;
-    const width = left + platen.width * k;
-    const height = top + platen.height * k + label;
+    const bands = platenBands(placements, px);
+    const left = bands.left * k;
+    const top = bands.top * k;
+    const width = left + platen.width * k + bands.right * k;
+    const height = top + platen.height * k + bands.bottom * k;
     const areaW = page.width - 2 * PAGE.margin;
     const areaH = page.height - 2 * PAGE.margin - pageTitleHeight - PAGE.gap;
     return {

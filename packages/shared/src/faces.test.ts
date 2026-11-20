@@ -3,6 +3,7 @@ import {
   crossesDoors,
   defaultWindow,
   defaultWindows,
+  faceNeighbours,
   faceSize,
   fitsOnFace,
   gridPositions,
@@ -41,6 +42,40 @@ describe("faceSize", () => {
   ] as const)("%s is %d wide and %d high", (face, width, height) => {
     expect(faceSize(cabinet, face)).toEqual({ width, height });
   });
+});
+
+describe("faceNeighbours", () => {
+  it.each([
+    ["FRONT", "TOP", "BOTTOM", "LEFT", "RIGHT"],
+    ["BACK", "TOP", "BOTTOM", "RIGHT", "LEFT"],
+    ["LEFT", "TOP", "BOTTOM", "BACK", "FRONT"],
+    ["RIGHT", "TOP", "BOTTOM", "FRONT", "BACK"],
+    ["TOP", "BACK", "FRONT", "LEFT", "RIGHT"],
+    ["BOTTOM", "BACK", "FRONT", "RIGHT", "LEFT"],
+  ] as const)("%s: %s above, %s below, %s left, %s right", (face, top, bottom, left, right) => {
+    expect(faceNeighbours(face)).toEqual({ top, bottom, left, right });
+  });
+
+  const opposite = {
+    FRONT: "BACK",
+    BACK: "FRONT",
+    LEFT: "RIGHT",
+    RIGHT: "LEFT",
+    TOP: "BOTTOM",
+    BOTTOM: "TOP",
+  } as const;
+
+  it.each(Object.keys(opposite) as (keyof typeof opposite)[])(
+    "%s: the four sides around it, opposite edges showing opposite faces",
+    (face) => {
+      const n = faceNeighbours(face);
+      expect(new Set(Object.values(n)).size).toBe(4);
+      expect(Object.values(n)).not.toContain(face);
+      expect(Object.values(n)).not.toContain(opposite[face]);
+      expect(opposite[n.top]).toBe(n.bottom);
+      expect(opposite[n.left]).toBe(n.right);
+    },
+  );
 });
 
 describe("openingShape", () => {

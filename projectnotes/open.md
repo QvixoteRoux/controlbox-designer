@@ -29,6 +29,7 @@ Built on 2026-11-18 and covered by tests, but not yet looked at:
 - [ ] Copy / paste of a rail with its parts
 - [ ] Wire space zones and warnings
 - [ ] Middle-drag moving a single part out of a row
+- [x] Side labels on all six face views and the platen (checked by the owner 2026-11-19)
 
 ## Before production
 

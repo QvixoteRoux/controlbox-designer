@@ -28,6 +28,8 @@ import { useRef, useState, type DragEvent } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { kindColors, textOn } from "./colors";
 import { Dimensions } from "./Dimensions";
+import { PLATEN_SIDES, SIDE_FONT, dimensionValues, sideLabelGaps } from "./drawing";
+import { SideLabels } from "../../components/SideLabels";
 import { followMoves, movesToChanges, slideWithChain, withMoves, type MovePatch } from "./moves";
 
 /** MIME type of a catalog part dragged from the part list. */
@@ -37,9 +39,10 @@ export const PART_DRAG_TYPE = "application/x-cabinet-planner-component";
 export const GRID = 50;
 /** Shortest length a rail or gutter can be dragged to: 10 mm. */
 const MIN_LENGTH = 100;
-const PAD = 24;
+/** "Fit" margin: room for the size and side labels around the platen. */
+const PAD = 44;
 /** Margin while dimensions are shown, so "Fit" keeps the first few dimension lines in view. */
-const DIMENSIONS_PAD = 80;
+const DIMENSIONS_PAD = 100;
 /** "Near" for snapping, in screen pixels (no setting: guidelines/platen-editor.md). */
 const SNAP_PX = 8;
 
@@ -370,6 +373,13 @@ export function LayoutCanvas(props: Props) {
               />
             )}
             {props.dimensions && <Dimensions placements={shown} px={px} colors={colors} />}
+            <SideLabels
+              box={{ left: 0, top: 0, right: platen.width, bottom: platen.height }}
+              sides={PLATEN_SIDES}
+              gap={sideLabelGaps(props.dimensions ? dimensionValues(shown) : null, px)}
+              fontSize={SIDE_FONT * px}
+              fill={colors.text}
+            />
             {drag?.guides.map((g) => (
               <Line
                 key={`${g.axis}${g.at}`}

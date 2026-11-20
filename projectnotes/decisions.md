@@ -17,6 +17,7 @@ Decisions that shape the product, grouped by area. The rules they led to are in 
 - Origin at the top-left corner of each face, viewed from outside; +x right, +y down (2026-11-17).
 - Round holes and glands are placed by their centre; windows and rectangular holes by their top-left corner. Stored that way in the database (2026-11-17).
 - Gland arrays: x/y is the centre of the first (top-left) hole; the array grows right and down (2026-11-17).
+- Every face view, and the platen on screen and in exports, names the face past each of its four edges, using the app's face names (BACK, not "rear") (2026-11-19).
 
 ## Cabinets
 

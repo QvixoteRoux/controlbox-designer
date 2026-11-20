@@ -40,3 +40,5 @@ What was built or changed, oldest first, with the commit. Details of each rule l
 - Untracked notes (`localnotes/`, `agentNotes/`) are shared between the two dev PCs through a synced folder, merged both ways on request (rule in `CLAUDE.md`). `bugs.md`: dimension spacing constants now in `drawing.ts`.
 - Cabinets: 1 or 2 doors (migration `cabinet_doors`, hinge side `BOTH`, check `cabinets_doors`); 2 doors fix the hinges and the mounting; one default window per door; "across both doors" warning on FRONT. First change made for the two-session sync practice.
 - Notes sync layout: the shared notes folder now holds one folder per PC (named by hostname); each session writes only its own and reads the other's (`CLAUDE.md` rule updated).
+- Cabinet doors checked in the browser by the owner (2026-11-19).
+- Side labels: every cabinet face view and the platen (editor and both exports) name the face past each edge (TOP, BOTTOM, LEFT, RIGHT, FRONT, BACK), so a side view shows where the others are. `faceNeighbours()` in `packages/shared/src/faces.ts`; `SideLabels` component; export layouts make room for them.

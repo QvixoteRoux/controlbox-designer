@@ -28,6 +28,36 @@ export function faceSize(
   }
 }
 
+/** The faces next to each edge of a face's view. */
+export interface FaceNeighbours {
+  top: Face;
+  bottom: Face;
+  left: Face;
+  right: Face;
+}
+
+/**
+ * Which face lies past each edge of a face's view, seen from outside (TOP and BOTTOM with FRONT
+ * toward the viewer, at the bottom of the view). BACK and BOTTOM come out mirrored left to right.
+ * The platen is seen from the front, so it uses FRONT's neighbours.
+ */
+export function faceNeighbours(face: Face): FaceNeighbours {
+  switch (face) {
+    case "FRONT":
+      return { top: "TOP", bottom: "BOTTOM", left: "LEFT", right: "RIGHT" };
+    case "BACK":
+      return { top: "TOP", bottom: "BOTTOM", left: "RIGHT", right: "LEFT" };
+    case "LEFT":
+      return { top: "TOP", bottom: "BOTTOM", left: "BACK", right: "FRONT" };
+    case "RIGHT":
+      return { top: "TOP", bottom: "BOTTOM", left: "FRONT", right: "BACK" };
+    case "TOP":
+      return { top: "BACK", bottom: "FRONT", left: "LEFT", right: "RIGHT" };
+    case "BOTTOM":
+      return { top: "BACK", bottom: "FRONT", left: "RIGHT", right: "LEFT" };
+  }
+}
+
 /** The outline of an opening on its face: a rectangle from its top-left corner (x, y), or a circle around its centre (x, y). */
 export type OpeningShape =
   | { round: false; x: number; y: number; width: number; height: number }

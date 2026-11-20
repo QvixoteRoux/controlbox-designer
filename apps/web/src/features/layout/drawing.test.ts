@@ -11,12 +11,17 @@ import {
   legendPages,
   letterFileName,
   PAPER_PX_MM,
+  PLATEN_LABEL,
+  PLATEN_SIDES,
+  SIDE_FONT,
+  SIDE_GAP,
   pagePxPerUnit,
   pageDrawingPx,
   exportFileName,
   legendRows,
   legendWidth,
   sheetLayout,
+  sideLabelGaps,
   titleLines,
 } from "./drawing";
 
@@ -92,24 +97,46 @@ describe("legendRows", () => {
   });
 });
 
+describe("side labels", () => {
+  it("sit past the dimension lines above and left, past the size label below", () => {
+    const px = 2;
+    const dims = { x: [500, 900], y: [1175] };
+    expect(sideLabelGaps(dims, px)).toEqual({
+      top: dimensionBand(2, px) + SIDE_GAP * px,
+      left: dimensionBand(1, px) + SIDE_GAP * px,
+      right: SIDE_GAP * px,
+      bottom: (PLATEN_LABEL + SIDE_GAP) * px,
+    });
+    // Dimensions hidden (editor toggle): right at the edge.
+    expect(sideLabelGaps(null, px).top).toBe(SIDE_GAP * px);
+  });
+
+  it("show the platen's neighbours as seen from the front", () => {
+    expect(PLATEN_SIDES).toEqual({ top: "TOP", bottom: "BOTTOM", left: "LEFT", right: "RIGHT" });
+  });
+});
+
 describe("sheetLayout", () => {
-  it("leaves room for the dimension lines above and left of the platen", () => {
+  const label = (SIDE_GAP + SIDE_FONT) * DRAWING_PX;
+
+  it("leaves room for the dimension lines and side labels around the platen", () => {
     const sheet = sheetLayout({ width: 6000, height: 8000 }, [rail], 1, 6);
     expect(dimensionValues([rail])).toEqual({ x: [500], y: [1175] });
     expect(sheet.origin).toEqual({
-      x: SHEET.margin + dimensionBand(1, DRAWING_PX),
-      y: SHEET.margin + dimensionBand(1, DRAWING_PX),
+      x: SHEET.margin + dimensionBand(1, DRAWING_PX) + label,
+      y: SHEET.margin + dimensionBand(1, DRAWING_PX) + label,
     });
-    expect(sheet.legend.x).toBe(sheet.origin.x + 6000 + SHEET.gap);
+    expect(sheet.legend.x).toBe(sheet.origin.x + 6000 + label + SHEET.gap);
     expect(sheet.width).toBe(Math.ceil(sheet.legend.x + legendWidth + SHEET.margin));
-    expect(sheet.title.y).toBeGreaterThan(sheet.origin.y + 8000);
+    expect(sheet.title.y).toBeGreaterThan(
+      sheet.origin.y + 8000 + PLATEN_LABEL * DRAWING_PX + label,
+    );
   });
 
-  it("needs no dimension band without rails or gutters", () => {
-    expect(sheetLayout({ width: 6000, height: 8000 }, [k2], 1, 6).origin).toEqual({
-      x: SHEET.margin,
-      y: SHEET.margin,
-    });
+  it("needs no dimension band without rails or gutters, only the side labels", () => {
+    const { origin } = sheetLayout({ width: 6000, height: 8000 }, [k2], 1, 6);
+    expect(origin.x).toBeCloseTo(SHEET.margin + label, 6);
+    expect(origin.y).toBeCloseTo(SHEET.margin + label, 6);
   });
 });
 

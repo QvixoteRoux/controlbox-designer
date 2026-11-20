@@ -11,6 +11,7 @@ import { useMantineTheme } from "@mantine/core";
 import type Konva from "konva";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Group, Layer, Line, Rect, Stage, Text } from "react-konva";
+import { SideLabels } from "../../components/SideLabels";
 import { kindColors } from "./colors";
 import { Dimensions } from "./Dimensions";
 import {
@@ -19,7 +20,10 @@ import {
   LEGEND_PAGE,
   LETTER,
   PAGE,
+  PLATEN_SIDES,
   SHEET,
+  SIDE_FONT,
+  dimensionValues,
   drawingPage,
   exportFileName,
   groupedLegend,
@@ -30,6 +34,7 @@ import {
   pageTitle,
   pageTitleHeight,
   sheetLayout,
+  sideLabelGaps,
   titleLines,
 } from "./drawing";
 import { PlacedShape } from "./LayoutCanvas";
@@ -397,6 +402,13 @@ function PlatenDrawing({
         />
       ))}
       <Dimensions placements={placements} px={px} colors={colors} />
+      <SideLabels
+        box={{ left: 0, top: 0, right: platen.width, bottom: platen.height }}
+        sides={PLATEN_SIDES}
+        gap={sideLabelGaps(dimensionValues(placements), px)}
+        fontSize={SIDE_FONT * px}
+        fill={INK}
+      />
     </>
   );
 }

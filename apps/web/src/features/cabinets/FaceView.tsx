@@ -1,4 +1,5 @@
 import {
+  faceNeighbours,
   faceSize,
   hasOpeningWarning,
   openingShape,
@@ -12,6 +13,7 @@ import {
 import { Box, useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useElementSize } from "@mantine/hooks";
 import { Arrow, Circle, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
+import { SideLabels } from "../../components/SideLabels";
 
 interface Props {
   cabinet: { width: number; height: number; depth: number; doors: number; hingeSide: HingeSide };
@@ -24,7 +26,11 @@ interface Props {
 }
 
 const PAD = 28;
+/** Below the face: its side label, then the size caption. */
+const PAD_BOTTOM = 46;
 const MAX_HEIGHT = 440;
+const SIDE_GAP = 7;
+const SIDE_FONT = 11;
 
 /**
  * One cabinet face to scale, seen from outside: origin at the face's top-left corner, +y down
@@ -37,8 +43,11 @@ export function FaceView({ cabinet, face, openings, warnings, selectedId, onSele
   const dark = useComputedColorScheme("light") === "dark";
 
   const size = faceSize(cabinet, face);
-  const scale = Math.min((boxWidth - 2 * PAD) / size.width, (MAX_HEIGHT - 2 * PAD) / size.height);
-  const stageHeight = size.height * scale + 2 * PAD;
+  const scale = Math.min(
+    (boxWidth - 2 * PAD) / size.width,
+    (MAX_HEIGHT - PAD - PAD_BOTTOM) / size.height,
+  );
+  const stageHeight = size.height * scale + PAD + PAD_BOTTOM;
   // Face coordinates (0.1 mm, top-left origin, +y down) → canvas pixels.
   const left = (boxWidth - size.width * scale) / 2;
   const top = PAD;
@@ -56,6 +65,7 @@ export function FaceView({ cabinet, face, openings, warnings, selectedId, onSele
     warn: theme.colors.red[6],
     selected: theme.colors.blue[5],
     hinge: theme.colors.orange[6],
+    side: dark ? theme.colors.dark[2] : theme.colors.gray[6],
   };
 
   const right = px(size.width);
@@ -123,9 +133,16 @@ export function FaceView({ cabinet, face, openings, warnings, selectedId, onSele
                 />
               )}
 
+            <SideLabels
+              box={{ left, top, right, bottom }}
+              sides={faceNeighbours(face)}
+              gap={SIDE_GAP}
+              fontSize={SIDE_FONT}
+              fill={colors.side}
+            />
             <Text
               x={left}
-              y={bottom + 6}
+              y={bottom + SIDE_GAP + SIDE_FONT + 6}
               width={right - left}
               align="center"
               text={`${toMm(size.width)} × ${toMm(size.height)} mm`}
