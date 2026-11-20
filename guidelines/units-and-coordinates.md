@@ -32,6 +32,7 @@ All lengths and positions are **integers in 0.1 mm** in the DB, the API and the 
 - Faces are named in the cabinet's own frame, as manufactured: `FRONT` (the door), `BACK`, `LEFT`, `RIGHT`, `TOP`, `BOTTOM`. LEFT and RIGHT are as seen from the front.
 - Each face has its own 2D system with the **origin at the face's top-left corner**. You view the face **from outside the cabinet**, with +x right and +y down (the same directions as the platen).
 - For TOP and BOTTOM, view from outside with FRONT toward you (at the bottom of the view).
+- Every face view names the face past each edge (`faceNeighbours()` in `faces.ts`). Faces are viewed from outside, so BACK and BOTTOM show LEFT and RIGHT swapped. The platen is viewed from the front and uses FRONT's neighbours.
 - `opening.x / y` is:
   - the **centre** for round holes and cable glands
   - the **top-left corner** for windows and rectangular holes
