@@ -9,7 +9,7 @@ Web app for laying out electrical cabinets:
 - `projectnotes/`: tracked project notes (progress log, owner decisions, open items, bugs, feature plans). Read `projectnotes/README.md` for what goes where. **The repo is public:** nothing private goes there.
 - `agentNotes/`: your scratch space (untracked), for working notes that don't belong in `projectnotes/`.
 - `localnotes/`: the owner's private notes (untracked). Read them only when asked and never write your own changes into them.
-- Syncing untracked notes: when the owner asks to sync notes, merge `localnotes/` and `agentNotes/` both ways with the owner's shared notes folder (its path is in `localnotes/`, not here: the repo is public). Copy the newer version of each file; merge `agentNotes/progress.md` by its per-PC sections.
+- Syncing untracked notes: each PC keeps its own `localnotes/` and `agentNotes/`. The owner's shared notes folder (its path is in `localnotes/`, not here: the repo is public) holds one folder per PC, named by `hostname`. When the owner asks to sync notes: copy your local folders into your own PC's folder (overwrite), read the other PC's folder and bring what's useful into your local notes, and never write to the other PC's folder. Name PCs by hostname in notes, never "this PC" / "other PC". Full rules: `README.md` in the shared folder.
 
 ## Stack (fixed: ask before swapping anything)
 
