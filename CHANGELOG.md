@@ -2,6 +2,32 @@
 
 What changed, newest first. The rules behind each change are in [guidelines/](guidelines/README.md); the commit hashes point to the full change.
 
+## 2026-11-19
+
+### Upgrading
+
+One new migration: `cabinet_doors`. After pulling:
+
+```
+pnpm install
+pnpm --filter api prisma migrate dev
+pnpm --filter @cabinet-planner/shared build
+```
+
+### Cabinets
+
+- **1 or 2 doors** (`19f5fd8`): a cabinet can have two doors.
+  - The two doors are vertical: the left one is hinged on the left, the right one on the right.
+  - A 2-door cabinet can't be mounted turned.
+  - "Window: yes" adds one window per door.
+  - The FRONT view shows both hinges and a dashed line where the doors meet. An opening on FRONT that crosses that line gets a warning.
+  - The cabinet page shows the door count.
+- **Side labels** (`f4f33d4`): every face view names the face past each edge, so a side view shows where the other sides are. Faces are seen from outside, so BACK and BOTTOM show LEFT and RIGHT swapped.
+
+### Platen editor and export
+
+- **Side labels** (`f4f33d4`): TOP, BOTTOM, LEFT and RIGHT around the platen, on screen and on both exports. They sit outside the dimension lines.
+
 ## 2026-11-18
 
 ### Upgrading
