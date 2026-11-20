@@ -5,6 +5,7 @@ import {
   OpeningInput,
   OpeningParams,
   RevisionParams,
+  SetBottomPlateInput,
   SetWindowInput,
   UpdateCabinetInput,
   UpdatePlatenInput,
@@ -22,6 +23,7 @@ import {
   getRevisionDetail,
   listCabinetTypes,
   replaceOpening,
+  setBottomPlate,
   setWindow,
   updateCabinet,
   updatePlaten,
@@ -73,6 +75,13 @@ export const cabinetsRoutes: FastifyPluginCallback<CabinetsRoutesOptions> = (app
   app.put(`${CAB}/window`, write, async (request, reply) => {
     const { cabinetId, ...ref } = CabinetParams.parse(request.params);
     await setWindow(db, ref, cabinetId, SetWindowInput.parse(request.body).hasWindow);
+    return reply.code(204).send();
+  });
+
+  app.put(`${CAB}/bottom-plate`, write, async (request, reply) => {
+    const { cabinetId, ...ref } = CabinetParams.parse(request.params);
+    const { hasBottomPlate } = SetBottomPlateInput.parse(request.body);
+    await setBottomPlate(db, ref, cabinetId, hasBottomPlate);
     return reply.code(204).send();
   });
 

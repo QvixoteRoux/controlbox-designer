@@ -25,6 +25,12 @@ interface Props {
   onSelect: (id: number) => void;
 }
 
+/** Bottom plates under everything else, so the holes on them stay clickable. */
+const platesFirst = (openings: Opening[]) => [
+  ...openings.filter((o) => o.kind === "BOTTOM_PLATE"),
+  ...openings.filter((o) => o.kind !== "BOTTOM_PLATE"),
+];
+
 const PAD = 28;
 /** Below the face: its side label, then the size caption. */
 const PAD_BOTTOM = 46;
@@ -62,6 +68,7 @@ export function FaceView({ cabinet, face, openings, warnings, selectedId, onSele
     window: theme.colors.cyan[5],
     hole: dark ? theme.colors.gray[4] : theme.colors.gray[7],
     gland: theme.colors.violet[5],
+    plate: theme.colors.teal[6],
     warn: theme.colors.red[6],
     selected: theme.colors.blue[5],
     hinge: theme.colors.orange[6],
@@ -150,22 +157,27 @@ export function FaceView({ cabinet, face, openings, warnings, selectedId, onSele
               fontSize={12}
             />
 
-            {openings.map((o) => {
+            {platesFirst(openings).map((o) => {
               const shape = openingShape(o);
               if (!shape) return null;
               const w = warnings.get(o.id);
               const warn = hasOpeningWarning(w);
+              const plate = o.kind === "BOTTOM_PLATE";
               const base =
                 o.kind === "WINDOW"
                   ? colors.window
                   : o.kind === "CABLE_GLAND"
                     ? colors.gland
-                    : colors.hole;
+                    : plate
+                      ? colors.plate
+                      : colors.hole;
               const stroke = o.id === selectedId ? colors.selected : warn ? colors.warn : base;
               const common = {
                 stroke,
                 strokeWidth: o.id === selectedId ? 3 : 2,
-                fill: warn ? `${colors.warn}33` : `${base}33`,
+                fill: warn ? `${colors.warn}33` : `${base}${plate ? "1a" : "33"}`,
+                // A removable plate: dashed, like a cover.
+                dash: plate ? [8, 4] : undefined,
               };
               const caption = o.label ?? (o.kind === "CABLE_GLAND" ? o.gland?.size : undefined);
               const b = shapeBounds(shape);
@@ -199,6 +211,7 @@ export function FaceView({ cabinet, face, openings, warnings, selectedId, onSele
                       y={py(shape.y)}
                       width={Math.max(shape.width * scale, 2)}
                       height={Math.max(shape.height * scale, 2)}
+                      cornerRadius={(shape.radius ?? 0) * scale}
                       {...common}
                     />
                   )}

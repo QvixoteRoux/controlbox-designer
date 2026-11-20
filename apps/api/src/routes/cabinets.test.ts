@@ -262,6 +262,111 @@ describe("the window switch", () => {
   });
 });
 
+describe("the bottom plate switch", () => {
+  const plateUrl = (id: number) => `${cabinetUrl(id)}/bottom-plate`;
+
+  it("adds a centred plate at 70 % of the bottom face with 10 mm corners, once", async () => {
+    const c = await newCabinet();
+
+    expect((await call(designer, "PUT", plateUrl(c.id), { hasBottomPlate: true })).statusCode).toBe(
+      204,
+    );
+    await call(designer, "PUT", plateUrl(c.id), { hasBottomPlate: true });
+
+    expect((await detail(c.id)).openings).toEqual([
+      expect.objectContaining({
+        kind: "BOTTOM_PLATE",
+        face: "BOTTOM",
+        // 280 × 140 mm on the 400 × 200 mm bottom, top-left corner 60 / 30 mm in.
+        x: 600,
+        y: 300,
+        width: 2800,
+        height: 1400,
+        cornerRadius: 100,
+        diameter: null,
+      }),
+    ]);
+  });
+
+  it("removes the plate when switched off, leaving holes", async () => {
+    const c = await newCabinet();
+    await call(designer, "PUT", plateUrl(c.id), { hasBottomPlate: true });
+    await call(designer, "POST", `${cabinetUrl(c.id)}/openings`, {
+      kind: "ROUND_HOLE",
+      face: "BOTTOM",
+      x: 2000,
+      y: 1000,
+      diameter: 205,
+    });
+
+    await call(designer, "PUT", plateUrl(c.id), { hasBottomPlate: false });
+
+    expect((await detail(c.id)).openings.map((o) => o.kind)).toEqual(["ROUND_HOLE"]);
+  });
+
+  it("needs the projects permission", async () => {
+    const c = await newCabinet();
+    expect((await call(viewer, "PUT", plateUrl(c.id), { hasBottomPlate: true })).statusCode).toBe(
+      403,
+    );
+    expect(await db.cabinetOpening.count()).toBe(0);
+  });
+
+  it("can be edited, but only on BOTTOM and with corners that fit", async () => {
+    const c = await newCabinet();
+    const plate = {
+      kind: "BOTTOM_PLATE",
+      face: "BOTTOM",
+      x: 500,
+      y: 400,
+      width: 2000,
+      height: 1000,
+      cornerRadius: 0,
+    };
+    const res = await call(designer, "POST", `${cabinetUrl(c.id)}/openings`, plate);
+    expect(res.statusCode).toBe(201);
+    expect(Opening.parse(res.json())).toMatchObject({ cornerRadius: 0, diameter: null });
+
+    const bad = [
+      { ...plate, face: "FRONT" },
+      { ...plate, cornerRadius: 501 },
+      { ...plate, cornerRadius: -1 },
+    ];
+    for (const body of bad) {
+      expect((await call(designer, "POST", `${cabinetUrl(c.id)}/openings`, body)).statusCode).toBe(
+        400,
+      );
+    }
+    // Switching another kind's opening to a plate and back clears the radius.
+    const id = Opening.parse(res.json()).id;
+    const hole = { kind: "RECT_HOLE", face: "BOTTOM", x: 0, y: 0, width: 100, height: 100 };
+    const back = await call(designer, "PUT", `${cabinetUrl(c.id)}/openings/${id}`, hole);
+    expect(Opening.parse(back.json()).cornerRadius).toBeNull();
+  });
+
+  it("is backed by the database check", async () => {
+    const c = await newCabinet();
+    const row = {
+      cabinetId: c.id,
+      kind: "BOTTOM_PLATE" as const,
+      face: "BOTTOM" as const,
+      x: 0,
+      y: 0,
+      width: 1000,
+      height: 600,
+      cornerRadius: 100,
+    };
+    await expect(db.cabinetOpening.create({ data: { ...row, face: "TOP" } })).rejects.toThrow();
+    await expect(
+      db.cabinetOpening.create({ data: { ...row, cornerRadius: 301 } }),
+    ).rejects.toThrow();
+    await expect(
+      db.cabinetOpening.create({ data: { ...row, kind: "WINDOW", cornerRadius: 10 } }),
+    ).rejects.toThrow();
+    await expect(db.cabinetOpening.create({ data: row })).resolves.toBeTruthy();
+  });
+});
+
 describe("openings", () => {
   const add = (cabinetId: number, body: object) =>
     call(designer, "POST", `${cabinetUrl(cabinetId)}/openings`, body);
@@ -529,6 +634,7 @@ describe("a released revision", () => {
       call(designer, "DELETE", cabinetUrl(c.id)),
       call(designer, "PUT", `${cabinetUrl(c.id)}/platen`, { height: 100, width: 100 }),
       call(designer, "PUT", `${cabinetUrl(c.id)}/window`, { hasWindow: true }),
+      call(designer, "PUT", `${cabinetUrl(c.id)}/bottom-plate`, { hasBottomPlate: true }),
       call(designer, "POST", `${cabinetUrl(c.id)}/openings`, {
         kind: "ROUND_HOLE",
         face: "FRONT",

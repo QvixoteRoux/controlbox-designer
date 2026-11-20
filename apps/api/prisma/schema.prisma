@@ -60,6 +60,7 @@ enum OpeningKind {
   ROUND_HOLE
   RECT_HOLE
   CABLE_GLAND
+  BOTTOM_PLATE
 }
 
 /// Decides which extra fields a catalog component has (attributes JSON)
@@ -253,27 +254,30 @@ model Platen {
   @@map("platens")
 }
 
-/// Windows, holes and cable glands cut into a cabinet face.
+/// Windows, holes, cable glands and bottom plates cut into a cabinet face.
 model CabinetOpening {
-  id          Int         @id @default(autoincrement())
-  cabinetId   Int         @map("cabinet_id")
-  kind        OpeningKind
-  face        Face
+  id           Int         @id @default(autoincrement())
+  cabinetId    Int         @map("cabinet_id")
+  kind         OpeningKind
+  face         Face
   /// From the face's top-left corner, +x right, +y down, viewed from outside.
-  /// Centre of round holes and glands; top-left corner of windows and rectangular holes.
-  x           Int
-  y           Int
-  /// WINDOW and RECT_HOLE only.
-  width       Int?
-  height      Int?
+  /// Centre of round holes and glands; top-left corner of windows, rectangular holes and
+  /// bottom plates.
+  x            Int
+  y            Int
+  /// WINDOW, RECT_HOLE and BOTTOM_PLATE only.
+  width        Int?
+  height       Int?
   /// ROUND_HOLE only. CABLE_GLAND takes its diameter from the gland catalog.
-  diameter    Int?
-  glandId     Int?        @map("gland_id")
+  diameter     Int?
+  /// BOTTOM_PLATE only (BOTTOM face): rounded corners, 0 = square.
+  cornerRadius Int?        @map("corner_radius")
+  glandId      Int?        @map("gland_id")
   /// Component mounted in the hole (pushbutton, pilot light…). Optional.
-  componentId Int?        @map("component_id")
-  label       String?
+  componentId  Int?        @map("component_id")
+  label        String?
   /// Catalog data frozen when the revision is released.
-  snapshot    Json?
+  snapshot     Json?
 
   cabinet   Cabinet     @relation(fields: [cabinetId], references: [id], onDelete: Cascade)
   gland     CableGland? @relation(fields: [glandId], references: [id], onDelete: Restrict)

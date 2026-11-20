@@ -1,5 +1,6 @@
 import {
   canMountInHole,
+  defaultBottomPlate,
   defaultPlatenSize,
   defaultWindows,
   doorProblem,
@@ -259,6 +260,31 @@ export async function setWindow(
   });
 }
 
+/**
+ * The "Bottom plate: yes / no" switch, like the window one. Yes adds the default plate (70 % of
+ * the bottom face, centred, 10 mm corners) when there's none; no removes every bottom plate on
+ * the cabinet (holes stay). Yes / no itself is never stored.
+ */
+export async function setBottomPlate(
+  db: PrismaClient,
+  ref: RevisionRef,
+  cabinetId: number,
+  hasBottomPlate: boolean,
+) {
+  const revision = await findRevision(db, ref);
+  await inEditableRevision(db, revision.id, async (tx) => {
+    const cabinet = await findCabinet(tx, revision.id, cabinetId);
+    const where = { cabinetId, kind: "BOTTOM_PLATE" as const };
+    if (!hasBottomPlate) {
+      await tx.cabinetOpening.deleteMany({ where });
+      return;
+    }
+    if ((await tx.cabinetOpening.count({ where })) === 0) {
+      await tx.cabinetOpening.create({ data: { cabinetId, ...defaultBottomPlate(cabinet) } });
+    }
+  });
+}
+
 // ── Openings ──
 
 /** Maps the input to columns, clearing the size fields that don't belong to its kind. */
@@ -272,6 +298,7 @@ function openingData(input: OpeningInput) {
     width: null,
     height: null,
     diameter: null,
+    cornerRadius: null,
     glandId: null,
     componentId: null,
   };
@@ -283,6 +310,13 @@ function openingData(input: OpeningInput) {
       return { ...common, diameter: input.diameter, componentId: input.componentId };
     case "CABLE_GLAND":
       return { ...common, glandId: input.glandId };
+    case "BOTTOM_PLATE":
+      return {
+        ...common,
+        width: input.width,
+        height: input.height,
+        cornerRadius: input.cornerRadius,
+      };
   }
 }
 

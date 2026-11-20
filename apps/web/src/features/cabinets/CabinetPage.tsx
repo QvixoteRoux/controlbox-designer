@@ -40,6 +40,7 @@ import {
   revisionPath,
   useDeleteCabinet,
   useDeleteOpening,
+  useSetBottomPlate,
   useSetWindow,
   useUpdateCabinet,
 } from "./api";
@@ -65,7 +66,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 const openingSize = (o: Opening) =>
   o.width !== null && o.height !== null
-    ? formatDims(o.width, o.height)
+    ? `${formatDims(o.width, o.height)}${o.cornerRadius ? `, R ${formatMm(o.cornerRadius)}` : ""}`
     : o.diameter !== null
       ? `Ø ${formatMm(o.diameter)}`
       : o.gland
@@ -79,6 +80,7 @@ export function CabinetPage() {
   const cabinet = useQuery(cabinetQuery(ref, cabinetId));
   const update = useUpdateCabinet(ref, cabinetId);
   const setWindow = useSetWindow(ref, cabinetId);
+  const setBottomPlate = useSetBottomPlate(ref, cabinetId);
   const remove = useDeleteCabinet(ref, cabinetId);
   const removeOpening = useDeleteOpening(ref, cabinetId);
   const [face, setFace] = useState<Face>("FRONT");
@@ -97,6 +99,7 @@ export function CabinetPage() {
   const warnings = openingWarnings(c, c.openings);
   const onFace = c.openings.filter((o) => o.face === face);
   const hasWindow = c.openings.some((o) => o.kind === "WINDOW");
+  const hasBottomPlate = c.openings.some((o) => o.kind === "BOTTOM_PLATE");
   const warningCount = [...warnings.values()].filter(hasOpeningWarning).length;
   const showError = (err: unknown) =>
     notifications.show({ color: "red", message: errorMessage(err) });
@@ -160,7 +163,7 @@ export function CabinetPage() {
         </Alert>
       )}
 
-      <SimpleGrid cols={{ base: 1, sm: 3 }}>
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
         <Card withBorder>
           <Text fw={600} mb="xs">
             Cabinet
@@ -225,6 +228,25 @@ export function CabinetPage() {
             {hasWindow
               ? "Switching off removes every window on this cabinet."
               : "Switching on adds a window centred on the door, half its width and height."}
+          </Text>
+        </Card>
+
+        <Card withBorder>
+          <Group justify="space-between" mb="xs">
+            <Text fw={600}>Bottom plate</Text>
+            <Switch
+              checked={hasBottomPlate}
+              disabled={!editable || setBottomPlate.isPending}
+              onChange={(e) =>
+                setBottomPlate.mutate(e.currentTarget.checked, { onError: showError })
+              }
+              aria-label="Has bottom plate"
+            />
+          </Group>
+          <Text size="sm" c="dimmed">
+            {hasBottomPlate
+              ? "Switching off removes the bottom plate. Holes stay; ones crossing its edge are flagged."
+              : "Switching on adds a removable plate centred on the bottom, 70% of it each way, with 10 mm corners."}
           </Text>
         </Card>
       </SimpleGrid>

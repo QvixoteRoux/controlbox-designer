@@ -18,7 +18,14 @@ export type Face = z.infer<typeof Face>;
 export const HingeSide = z.enum(["LEFT", "RIGHT", "TOP", "BOTTOM", "NONE", "BOTH"]);
 export type HingeSide = z.infer<typeof HingeSide>;
 
-export const OpeningKind = z.enum(["WINDOW", "ROUND_HOLE", "RECT_HOLE", "CABLE_GLAND"]);
+/** BOTTOM_PLATE: the opening under a cabinet's removable, screwed-on bottom plate (BOTTOM only). */
+export const OpeningKind = z.enum([
+  "WINDOW",
+  "ROUND_HOLE",
+  "RECT_HOLE",
+  "CABLE_GLAND",
+  "BOTTOM_PLATE",
+]);
 export type OpeningKind = z.infer<typeof OpeningKind>;
 
 export const ComponentKind = z.enum([

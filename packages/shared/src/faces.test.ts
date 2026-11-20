@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   crossesDoors,
   defaultWindow,
+  defaultBottomPlate,
   defaultWindows,
   faceNeighbours,
   faceSize,
@@ -11,6 +12,7 @@ import {
   openingShape,
   openingWarnings,
   shapesOverlap,
+  shapeWithin,
   type OpeningShape,
 } from "./faces.js";
 
@@ -164,6 +166,79 @@ describe("openingWarnings", () => {
     expect(w.get(3)).toEqual({ outside: false, overlaps: [], acrossDoors: false });
     // LEFT is 2000 wide: 1900 + 150 > 2000.
     expect(w.get(4)).toEqual({ outside: true, overlaps: [], acrossDoors: false });
+  });
+});
+
+describe("bottom plate", () => {
+  // The default on the 400 × 200 mm bottom face: 280 × 140 mm, centred, 10 mm corners.
+  const plate = defaultBottomPlate(cabinet);
+  const plateShape = rect(600, 300, 2800, 1400);
+  const rounded = { round: false as const, x: 600, y: 300, width: 2800, height: 1400, radius: 100 };
+
+  it("is 70 % of the bottom face each way, centred, with 10 mm corners", () => {
+    expect(plate).toEqual({
+      kind: "BOTTOM_PLATE",
+      face: "BOTTOM",
+      x: 600,
+      y: 300,
+      width: 2800,
+      height: 1400,
+      cornerRadius: 100,
+      label: null,
+    });
+    // A plate too small for 10 mm corners gets half its shorter side.
+    expect(defaultBottomPlate({ width: 400, depth: 200 }).cornerRadius).toBe(70);
+  });
+
+  it("has rounded corners in its shape", () => {
+    expect(openingShape({ ...plate, diameter: null })).toEqual(rounded);
+    expect(openingShape({ ...plate, diameter: null, cornerRadius: 0 })).toEqual(plateShape);
+  });
+
+  it("doesn't overlap what sits in a rounded-off corner", () => {
+    // 2 mm hole 2 mm in from the corner: inside the square, outside the arc.
+    expect(shapesOverlap(circle(620, 320, 20), plateShape)).toBe(true);
+    expect(shapesOverlap(circle(620, 320, 20), rounded)).toBe(false);
+    expect(shapesOverlap(rect(560, 260, 50, 50), rounded)).toBe(false);
+    expect(shapesOverlap(circle(2000, 1000, 200), rounded)).toBe(true);
+  });
+
+  it("tells holes wholly on the plate from ones crossing its edge", () => {
+    expect(shapeWithin(circle(2000, 1000, 200), rounded)).toBe(true);
+    expect(shapeWithin(circle(700, 1000, 200), rounded)).toBe(true); // touching the edge
+    expect(shapeWithin(circle(650, 1000, 200), rounded)).toBe(false);
+    // Fits the square corner but not the rounded one.
+    expect(shapeWithin(circle(620, 320, 20), rounded)).toBe(false);
+    expect(shapeWithin(rect(1000, 500, 500, 300), rounded)).toBe(true);
+    expect(shapeWithin(rect(600, 300, 100, 100), rounded)).toBe(false);
+    // A hole bigger than the corner arcs only needs to clear the straight edges.
+    expect(shapeWithin(circle(900, 600, 600), rounded)).toBe(true);
+  });
+
+  it("warns only for holes crossing the plate's edge, on both", () => {
+    const hole = (id: number, x: number, y: number) => ({
+      id,
+      kind: "ROUND_HOLE",
+      face: "BOTTOM" as const,
+      x,
+      y,
+      width: null,
+      height: null,
+      diameter: 200,
+    });
+    const openings = [
+      { id: 1, ...plate, diameter: null },
+      hole(2, 2000, 1000), // on the plate
+      hole(3, 300, 1000), // beside it
+      hole(4, 600, 1000), // across its left edge
+      { id: 5, ...plate, x: 3000, diameter: null }, // a second plate over the first
+    ];
+    const w = openingWarnings(cabinet, openings);
+    expect(w.get(1)?.overlaps).toEqual([4, 5]);
+    expect(w.get(2)?.overlaps).toEqual([]);
+    expect(w.get(3)?.overlaps).toEqual([]);
+    expect(w.get(4)?.overlaps).toEqual([1]);
+    expect(w.get(5)?.overlaps).toEqual([1]);
   });
 });
 

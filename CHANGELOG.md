@@ -2,6 +2,26 @@
 
 What changed, newest first. The rules behind each change are in [guidelines/](guidelines/README.md); the commit hashes point to the full change.
 
+## 2026-11-20
+
+### Upgrading
+
+One new migration: `bottom_plate`. It also replaces the database check `cabinet_openings_shape`. After pulling:
+
+```
+pnpm install
+pnpm --filter api prisma migrate dev
+pnpm --filter @cabinet-planner/shared build
+```
+
+### Cabinets
+
+- **Bottom plate:** the opening under a metal cabinet's removable, screwed-on bottom lid.
+  - A "Bottom plate" switch on the cabinet page adds one centred on BOTTOM, at 70% of its width and depth, with 10 mm rounded corners.
+  - Edit it like any opening. Its face is always BOTTOM, and its corner radius can be anything from 0 (square) to half its shorter side.
+  - Holes can go on the plate or beside it. A hole crossing the plate's edge gets an "Overlaps" warning.
+  - It's drawn dashed, under the holes.
+
 ## 2026-11-19
 
 ### Upgrading

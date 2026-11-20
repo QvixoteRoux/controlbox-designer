@@ -104,13 +104,17 @@ ALTER TABLE placements
     AND bridged_levels <@ ARRAY[1, 2, 3, 4]
   );
 
--- Openings: each kind carries the fields it needs.
+-- Openings: each kind carries the fields it needs. A bottom plate (migration bottom_plate) sits
+-- on BOTTOM, with a corner radius of at most half its width and height. kind is compared as
+-- text: that migration adds BOTTOM_PLATE and can't use the new value in the same transaction.
 ALTER TABLE cabinet_openings
   ADD CONSTRAINT cabinet_openings_shape
   CHECK (
-       (kind IN ('WINDOW', 'RECT_HOLE') AND width > 0 AND height > 0 AND diameter IS NULL AND gland_id IS NULL)
-    OR (kind = 'ROUND_HOLE'            AND diameter > 0 AND width IS NULL AND height IS NULL AND gland_id IS NULL)
-    OR (kind = 'CABLE_GLAND'           AND gland_id IS NOT NULL AND width IS NULL AND height IS NULL AND diameter IS NULL)
+       (kind::text IN ('WINDOW', 'RECT_HOLE') AND width > 0 AND height > 0 AND diameter IS NULL AND gland_id IS NULL AND corner_radius IS NULL)
+    OR (kind::text = 'ROUND_HOLE'            AND diameter > 0 AND width IS NULL AND height IS NULL AND gland_id IS NULL AND corner_radius IS NULL)
+    OR (kind::text = 'CABLE_GLAND'           AND gland_id IS NOT NULL AND width IS NULL AND height IS NULL AND diameter IS NULL AND corner_radius IS NULL)
+    OR (kind::text = 'BOTTOM_PLATE'          AND face = 'BOTTOM' AND width > 0 AND height > 0 AND diameter IS NULL AND gland_id IS NULL
+                                             AND corner_radius >= 0 AND 2 * corner_radius <= LEAST(width, height))
   );
 
 -- Components: only kinds with the Standard fields can be expandable (placed as a row of

@@ -128,10 +128,14 @@ export type UpdatePlatenInput = z.infer<typeof UpdatePlatenInput>;
 export const SetWindowInput = z.object({ hasWindow: z.boolean() });
 export type SetWindowInput = z.infer<typeof SetWindowInput>;
 
-// ── Openings (windows, holes, cable glands on a cabinet face) ──
+/** PUT …/cabinets/:cabinetId/bottom-plate : the cabinet's "Bottom plate: yes / no" switch. */
+export const SetBottomPlateInput = z.object({ hasBottomPlate: z.boolean() });
+export type SetBottomPlateInput = z.infer<typeof SetBottomPlateInput>;
+
+// ── Openings (windows, holes, cable glands, bottom plates on a cabinet face) ──
 // x / y from the face's top-left corner, +x right, +y down, seen from outside
 // (guidelines/units-and-coordinates.md): the centre of round holes and glands, the top-left
-// corner of windows and rectangular holes.
+// corner of windows, rectangular holes and bottom plates.
 
 const openingBase = {
   face: Face,
@@ -162,6 +166,20 @@ export const OpeningInput = z.discriminatedUnion("kind", [
     componentId: Id.nullable().default(null),
   }),
   z.object({ kind: z.literal("CABLE_GLAND"), ...openingBase, glandId: Id }),
+  z
+    .object({
+      kind: z.literal("BOTTOM_PLATE"),
+      ...openingBase,
+      face: z.literal("BOTTOM", "A bottom plate goes on the bottom face"),
+      width: PositiveUnits,
+      height: PositiveUnits,
+      /** Rounded corners; 0 = square. */
+      cornerRadius: Units.nonnegative(),
+    })
+    .refine((o) => 2 * o.cornerRadius <= Math.min(o.width, o.height), {
+      message: "Too big for the plate: at most half its width and height",
+      path: ["cornerRadius"],
+    }),
 ]);
 export type OpeningInput = z.infer<typeof OpeningInput>;
 
@@ -211,6 +229,8 @@ export const Opening = z.object({
   width: PositiveUnits.nullable(),
   height: PositiveUnits.nullable(),
   diameter: PositiveUnits.nullable(),
+  /** BOTTOM_PLATE only. */
+  cornerRadius: Units.nullable(),
   glandId: Id.nullable(),
   componentId: Id.nullable(),
   label: z.string().nullable(),

@@ -35,7 +35,7 @@ All lengths and positions are **integers in 0.1 mm** in the DB, the API and the 
 - Every face view names the face past each edge (`faceNeighbours()` in `faces.ts`). Faces are viewed from outside, so BACK and BOTTOM show LEFT and RIGHT swapped. The platen is viewed from the front and uses FRONT's neighbours.
 - `opening.x / y` is:
   - the **centre** for round holes and cable glands
-  - the **top-left corner** for windows and rectangular holes
+  - the **top-left corner** for windows, rectangular holes and bottom plates
 - A position inside the face is always ≥ 0. Negative values (or past the far edge) are allowed and shown as "outside the face" warnings.
 - Because positions are measured from the top-left corner, resizing a cabinet keeps every opening at the same distance from that corner. Openings near the right or bottom edge may then end up off the face (and get flagged).
 - Changed on 2026-11-17 from "centre origin, +y up". Migration `opening_origin_top_left` converted the stored positions.

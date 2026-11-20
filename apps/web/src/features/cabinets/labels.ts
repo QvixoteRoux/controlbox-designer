@@ -5,6 +5,7 @@ export const KIND_LABELS: Record<OpeningKind, string> = {
   RECT_HOLE: "Rectangular hole",
   ROUND_HOLE: "Round hole",
   CABLE_GLAND: "Cable gland",
+  BOTTOM_PLATE: "Bottom plate",
 };
 
 export const FACE_LABELS: Record<Face, string> = {

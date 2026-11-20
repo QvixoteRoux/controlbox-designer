@@ -91,6 +91,11 @@ export const useSetWindow = (ref: RevisionRef, cabinetId: number) =>
     api.put(`/api${cabinetPath(ref, cabinetId)}/window`, { hasWindow }),
   );
 
+export const useSetBottomPlate = (ref: RevisionRef, cabinetId: number) =>
+  useRevisionMutation(ref, (hasBottomPlate: boolean) =>
+    api.put(`/api${cabinetPath(ref, cabinetId)}/bottom-plate`, { hasBottomPlate }),
+  );
+
 export const useSaveOpening = (ref: RevisionRef, cabinetId: number) =>
   useRevisionMutation(ref, ({ id, input }: { id?: number; input: OpeningInput }) =>
     id === undefined

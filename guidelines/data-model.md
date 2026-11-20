@@ -35,21 +35,26 @@ User 1─* Session
 - **Window yes/no is derived**: a cabinet has a window when it has an opening of kind `WINDOW`. The Yes/No switch (`PUT …/window`):
   - Yes: if there's no window, adds one centred on FRONT at half the door's width and height; on a 2-door cabinet, one per door, centred in each (`defaultWindows()` in `packages/shared/src/faces.ts`). No form; edit them in the openings list.
   - No: removes **every** window on the cabinet. Holes and glands stay.
+- **Bottom plate yes/no is derived** the same way (owner, 2026-11-20), from openings of kind `BOTTOM_PLATE`: the opening under a removable, screwed-on plate. The switch is `PUT …/bottom-plate`:
+  - Yes: if there's none, adds one centred on BOTTOM at 70% of its width and depth, with 10 mm corners (`defaultBottomPlate()` in `faces.ts`). Edit it in the openings list.
+  - No: removes every bottom plate. Holes stay.
 - Every cabinet gets a platen row on creation (default size). `has_platen` off keeps the row, so switching it back on restores the size and layout.
 - `other_voltages`: a list of strings, which can be empty.
 
 ## Openings (`cabinet_openings`)
 
-| kind        | uses                                                    |
-| ----------- | ------------------------------------------------------- |
-| WINDOW      | face, x, y, width, height                               |
-| RECT_HOLE   | face, x, y, width, height                               |
-| ROUND_HOLE  | face, x, y, diameter, optional component                |
-| CABLE_GLAND | face, x, y, gland (the diameter comes from the catalog) |
+| kind         | uses                                                                    |
+| ------------ | ----------------------------------------------------------------------- |
+| WINDOW       | face, x, y, width, height                                               |
+| RECT_HOLE    | face, x, y, width, height                                               |
+| ROUND_HOLE   | face, x, y, diameter, optional component                                |
+| CABLE_GLAND  | face, x, y, gland (the diameter comes from the catalog)                 |
+| BOTTOM_PLATE | BOTTOM only, x, y, width, height, corner_radius (≤ half the short side) |
 
-A database check rule enforces the right fields for each kind.
+A database check rule enforces the right fields for each kind (`cabinet_openings_shape`).
 
 - Openings that stick out past their face, or overlap another opening on the same face, are **saved anyway** and shown in red as warnings (`openingWarnings()` in `packages/shared/src/faces.ts`). Face sizes follow `guidelines/units-and-coordinates.md`.
+  - A hole and a bottom plate only count as overlapping when the hole **crosses the plate's edge**. Holes wholly on the plate or wholly beside it are fine, since holes may be cut in either (owner, 2026-11-20). The rounded corners count as cut away.
 - A gland opening needs an active gland when it's created or switched to another gland; it keeps its gland if that gland is deactivated later.
 - **Gland arrays** (`POST …/openings/gland-array`, cable glands only): columns × rows of one gland. x / y is the **centre of the first (top-left) hole**; the grid grows to the right and down (+x, +y), spaced **centre to centre** by `pitchX` / `pitchY` (`gridPositions()` in `faces.ts`). At most 200 holes.
   - Saved as separate CABLE_GLAND openings (no array record), all in one transaction; edited and deleted one by one afterwards.

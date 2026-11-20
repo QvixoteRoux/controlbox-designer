@@ -58,10 +58,14 @@ export function faceNeighbours(face: Face): FaceNeighbours {
   }
 }
 
-/** The outline of an opening on its face: a rectangle from its top-left corner (x, y), or a circle around its centre (x, y). */
+/**
+ * The outline of an opening on its face: a rectangle from its top-left corner (x, y), with
+ * rounded corners when it has a `radius` (bottom plates), or a circle around its centre (x, y).
+ */
 export type OpeningShape =
-  | { round: false; x: number; y: number; width: number; height: number }
+  | { round: false; x: number; y: number; width: number; height: number; radius?: number }
   | { round: true; x: number; y: number; diameter: number };
+type RectShape = Extract<OpeningShape, { round: false }>;
 
 /**
  * The shape an opening cuts. Glands cut a round hole of the gland's hole diameter.
@@ -73,10 +77,12 @@ export function openingShape(o: {
   width: number | null;
   height: number | null;
   diameter: number | null;
+  cornerRadius?: number | null;
   gland?: { holeDiameter: number } | null;
 }): OpeningShape | null {
   if (o.width !== null && o.height !== null) {
-    return { round: false, x: o.x, y: o.y, width: o.width, height: o.height };
+    const rect = { round: false as const, x: o.x, y: o.y, width: o.width, height: o.height };
+    return o.cornerRadius ? { ...rect, radius: o.cornerRadius } : rect;
   }
   const diameter = o.diameter ?? o.gland?.holeDiameter ?? null;
   return diameter === null ? null : { round: true, x: o.x, y: o.y, diameter };
@@ -97,8 +103,34 @@ export function fitsOnFace(shape: OpeningShape, face: Size): boolean {
   return b.left >= 0 && b.top >= 0 && b.right <= face.width && b.bottom <= face.height;
 }
 
-/** True when two openings overlap (touching edges don't count). */
+/**
+ * A shape as a core rectangle grown by a radius: a circle is its centre grown by its radius, a
+ * rounded rectangle the rectangle inside its corner arcs grown by the corner radius.
+ */
+function cored(s: OpeningShape) {
+  if (s.round) {
+    return { left: s.x, top: s.y, right: s.x, bottom: s.y, r: s.diameter / 2 };
+  }
+  const r = s.radius ?? 0;
+  return { left: s.x + r, top: s.y + r, right: s.x + s.width - r, bottom: s.y + s.height - r, r };
+}
+
+type Core = ReturnType<typeof cored>;
+
+/** Shortest distance between two core rectangles (0 when they touch or cross). */
+function coreGap(a: Core, b: Core) {
+  const dx = Math.max(a.left - b.right, 0, b.left - a.right);
+  const dy = Math.max(a.top - b.bottom, 0, b.top - a.bottom);
+  return Math.hypot(dx, dy);
+}
+
+/** True when two openings overlap (touching edges don't count). Rounded corners count as cut away. */
 export function shapesOverlap(a: OpeningShape, b: OpeningShape): boolean {
+  if ((!a.round && a.radius) || (!b.round && b.radius)) {
+    const ca = cored(a);
+    const cb = cored(b);
+    return coreGap(ca, cb) < ca.r + cb.r;
+  }
   if (a.round && b.round) {
     const r = a.diameter / 2 + b.diameter / 2;
     return (a.x - b.x) ** 2 + (a.y - b.y) ** 2 < r * r;
@@ -116,6 +148,64 @@ export function shapesOverlap(a: OpeningShape, b: OpeningShape): boolean {
   const dy = Math.max(rect.y - circle.y, 0, circle.y - (rect.y + rect.height));
   const r = circle.diameter / 2;
   return dx * dx + dy * dy < r * r;
+}
+
+/**
+ * True when `inner` lies wholly within the rectangle `outer`, rounded corners included (touching
+ * the edge counts as within). A rounded `inner` is checked by its bounding box.
+ */
+export function shapeWithin(inner: OpeningShape, outer: RectShape): boolean {
+  const core = cored(outer);
+  if (inner.round) {
+    const r = inner.diameter / 2;
+    if (r > core.r) {
+      // Bigger than the corner arcs: only the straight edges can stop it.
+      return (
+        inner.x - r >= outer.x &&
+        inner.y - r >= outer.y &&
+        inner.x + r <= outer.x + outer.width &&
+        inner.y + r <= outer.y + outer.height
+      );
+    }
+    return coreGap(cored(inner), core) <= core.r - r;
+  }
+  const b = shapeBounds(inner);
+  const corners: [number, number][] = [
+    [b.left, b.top],
+    [b.right, b.top],
+    [b.left, b.bottom],
+    [b.right, b.bottom],
+  ];
+  return corners.every(
+    ([x, y]) => coreGap({ left: x, top: y, right: x, bottom: y, r: 0 }, core) <= core.r,
+  );
+}
+
+// ── Bottom plates ──
+
+/** "Bottom plate: yes" adds one at 70 % of the bottom face each way (owner, 2026-11-20). */
+export const BOTTOM_PLATE_SHARE = 0.7;
+/** Default corner radius: 10 mm (owner, 2026-11-20). */
+export const BOTTOM_PLATE_RADIUS = 100;
+
+/**
+ * The bottom plate that "Bottom plate: yes" creates: centred on BOTTOM (width × depth), 70 % of
+ * it each way, corners rounded 10 mm (less on a plate too small for that). x / y is its top-left
+ * corner, rounded to whole units.
+ */
+export function defaultBottomPlate(cabinet: { width: number; depth: number }) {
+  const width = Math.round(cabinet.width * BOTTOM_PLATE_SHARE);
+  const height = Math.round(cabinet.depth * BOTTOM_PLATE_SHARE);
+  return {
+    kind: "BOTTOM_PLATE" as const,
+    face: "BOTTOM" as const,
+    x: Math.round((cabinet.width - width) / 2),
+    y: Math.round((cabinet.depth - height) / 2),
+    width,
+    height,
+    cornerRadius: Math.min(BOTTOM_PLATE_RADIUS, Math.floor(Math.min(width, height) / 2)),
+    label: null,
+  };
 }
 
 export interface OpeningWarnings {
@@ -138,11 +228,29 @@ export function crossesDoors(shape: OpeningShape, cabinet: { width: number; door
 }
 
 /**
- * Warnings per opening id: outside its face, overlapping another opening on the same face, or
- * (2-door cabinets) across the middle of FRONT where the doors meet.
+ * Whether two openings on the same face clash. A hole and a bottom plate only clash when the
+ * hole crosses the plate's edge: one wholly on the plate or wholly off it is fine (owner,
+ * 2026-11-20), since holes may be cut in the plate or beside it.
+ */
+function clash(
+  a: { kind?: string; shape: OpeningShape },
+  b: { kind?: string; shape: OpeningShape },
+): boolean {
+  if (!shapesOverlap(a.shape, b.shape)) return false;
+  const aPlate = a.kind === "BOTTOM_PLATE" && !a.shape.round;
+  const bPlate = b.kind === "BOTTOM_PLATE" && !b.shape.round;
+  if (aPlate === bPlate) return true;
+  const [plate, hole] = aPlate ? [a.shape, b.shape] : [b.shape, a.shape];
+  return plate.round || !shapeWithin(hole, plate);
+}
+
+/**
+ * Warnings per opening id: outside its face, overlapping another opening on the same face
+ * (for a bottom plate: a hole crossing its edge), or (2-door cabinets) across the middle of
+ * FRONT where the doors meet.
  */
 export function openingWarnings<
-  O extends { id: number; face: Face } & Parameters<typeof openingShape>[0],
+  O extends { id: number; face: Face; kind?: string } & Parameters<typeof openingShape>[0],
 >(cabinet: { width: number; height: number; depth: number; doors?: number }, openings: O[]) {
   const shapes = openings.map((o) => ({ o, shape: openingShape(o) }));
   const result = new Map<number, OpeningWarnings>();
@@ -154,7 +262,7 @@ export function openingWarnings<
               other.o.id !== o.id &&
               other.o.face === o.face &&
               other.shape !== null &&
-              shapesOverlap(shape, other.shape),
+              clash({ kind: o.kind, shape }, { kind: other.o.kind, shape: other.shape }),
           )
           .map((other) => other.o.id)
       : [];

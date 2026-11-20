@@ -8,6 +8,8 @@ Things to decide, build or check. Move an item to [progress.md](progress.md) (do
 - **Arrow-key nudges and rows:** dragging moves a part's whole row on a rail; nudging only moves the selection. Should nudges move the row too?
 - **Stacking as a tower:** parts mounted on top of each other aren't modelled. "Stackable" is reserved for it.
 
+- **Bottom plate size:** 70% of the bottom face with 10 mm corners is a placeholder. Replace it with real measurements (per cabinet type or vendor?) when they're known.
+
 ## To build
 
 - **Bill of materials:** bridges (cross-connectors) are drawn but not listed as parts; end plates and end brackets likewise.
@@ -30,6 +32,7 @@ Built on 2026-11-18 and covered by tests, but not yet looked at:
 - [ ] Wire space zones and warnings
 - [ ] Middle-drag moving a single part out of a row
 - [x] Side labels on all six face views and the platen (checked by the owner 2026-11-19)
+- [x] Bottom plate (checked by the owner 2026-11-20)
 
 ## Before production
 

@@ -1,4 +1,5 @@
 import {
+  BOTTOM_PLATE_RADIUS,
   canMountInHole,
   Face,
   faceSize,
@@ -43,6 +44,8 @@ interface Values {
   width: number | string;
   height: number | string;
   diameter: number | string;
+  /** Bottom plates only. */
+  cornerRadius: number | string;
   glandId: string | null;
   /** Round holes: catalog component mounted in the hole. */
   componentId: string | null;
@@ -75,8 +78,21 @@ function toOpening(v: Values) {
       };
     case "CABLE_GLAND":
       return { kind: v.kind, ...base, glandId: glandId(v) };
+    case "BOTTOM_PLATE":
+      return {
+        kind: v.kind,
+        ...base,
+        face: "BOTTOM" as const,
+        width: mmToUnits(v.width),
+        height: mmToUnits(v.height),
+        cornerRadius: v.cornerRadius === "" ? 0 : mmToUnits(v.cornerRadius),
+      };
   }
 }
+
+/** Kinds placed by their top-left corner (the rest by their centre). */
+const byCorner = (kind: OpeningKind) =>
+  kind === "WINDOW" || kind === "RECT_HOLE" || kind === "BOTTOM_PLATE";
 
 /** Form values (mm) → the API's GlandArrayInput. An empty pitch counts as 0. */
 const toGlandArray = (v: Values) => ({
@@ -153,6 +169,7 @@ function OpeningForm({
       width: mm(opening?.width),
       height: mm(opening?.height),
       diameter: mm(opening?.diameter),
+      cornerRadius: mm(opening?.cornerRadius ?? BOTTOM_PLATE_RADIUS),
       glandId: opening?.glandId == null ? null : String(opening.glandId),
       componentId: opening?.componentId == null ? null : String(opening.componentId),
       label: opening?.label ?? "",
@@ -167,6 +184,14 @@ function OpeningForm({
   const values = form.getValues();
   const { kind } = values;
   const arrayMode = isArray(values);
+  // A bottom plate always goes on the bottom face.
+  const kindProps = form.getInputProps("kind");
+  const chooseKind = (k: string | null) => {
+    const next = OpeningKind.safeParse(k);
+    if (!next.success) return;
+    form.setFieldValue("kind", next.data);
+    if (next.data === "BOTTOM_PLATE") form.setFieldValue("face", "BOTTOM");
+  };
 
   // Active glands, plus the current one even if it was deactivated since.
   const glandOptions = (glands.data ?? [])
@@ -220,12 +245,14 @@ function OpeningForm({
             label="Kind"
             data={OpeningKind.options.map((k) => ({ value: k, label: KIND_LABELS[k] }))}
             allowDeselect={false}
-            {...form.getInputProps("kind")}
+            {...kindProps}
+            onChange={chooseKind}
           />
           <Select
             label="Face"
             data={Face.options.map((f) => ({ value: f, label: FACE_LABELS[f] }))}
             allowDeselect={false}
+            disabled={kind === "BOTTOM_PLATE"}
             {...form.getInputProps("face")}
           />
         </SimpleGrid>
@@ -251,7 +278,7 @@ function OpeningForm({
         <Text size="sm" c="dimmed">
           {arrayMode
             ? "Centre of the first (top-left) hole; the array grows to the right and down"
-            : kind === "WINDOW" || kind === "RECT_HOLE"
+            : byCorner(kind)
               ? "Position of the top-left corner"
               : "Position of the centre"}
           , measured from the top-left corner of the face, seen from outside: X to the right, Y
@@ -268,11 +295,19 @@ function OpeningForm({
           <NumberInput label="Y" {...mmInputProps} allowNegative {...form.getInputProps("y")} />
         </SimpleGrid>
 
-        {(kind === "WINDOW" || kind === "RECT_HOLE") && (
+        {byCorner(kind) && (
           <SimpleGrid cols={2}>
             <NumberInput label="Width" {...mmInputProps} {...form.getInputProps("width")} />
             <NumberInput label="Height" {...mmInputProps} {...form.getInputProps("height")} />
           </SimpleGrid>
+        )}
+        {kind === "BOTTOM_PLATE" && (
+          <NumberInput
+            label="Corner radius"
+            description="Rounded corners of the opening; 0 for square"
+            {...mmInputProps}
+            {...form.getInputProps("cornerRadius")}
+          />
         )}
         {kind === "ROUND_HOLE" && (
           <>
